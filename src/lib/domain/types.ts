@@ -91,6 +91,7 @@ export type Match = {
   groupId?: string;
   phase?: string;
   phaseWeight?: number;
+  roundIndex?: number;
   winnerId?: string;
   note?: string;
   disciplinaryPenalties?: Record<string, number>;

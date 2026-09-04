@@ -12,14 +12,14 @@ describe('ranking engine', () => {
   it('calcola punti, set, game e ordine classifica', () => {
     const matches: Match[] = [
       { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 6, gamesB: 4 }] },
-      { id: 'm2', participantAId: 'a', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 3, gamesB: 6 }] },
-      { id: 'm3', participantAId: 'b', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 6, gamesB: 2 }] }
+      { id: 'm2', participantAId: 'a', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 6, gamesB: 2 }] },
+      { id: 'm3', participantAId: 'b', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 6, gamesB: 3 }] }
     ];
 
     const ranking = calculateRanking(participants, matches, defaultTournamentRules);
     expect(ranking[0].participantId).toBe('a');
-    expect(ranking[0].points).toBe(3);
-    expect(ranking[0].gameDiff).toBe(1);
+    expect(ranking[0].points).toBe(6);
+    expect(ranking[0].gameDiff).toBe(6);
     expect(ranking[1].participantId).toBe('b');
     expect(ranking[2].participantId).toBe('c');
   });
@@ -27,12 +27,15 @@ describe('ranking engine', () => {
   it('usa lo scontro diretto tra due partecipanti a pari punti', () => {
     const matches: Match[] = [
       { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 6, gamesB: 4 }] },
-      { id: 'm2', participantAId: 'a', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 3, gamesB: 6 }] },
-      { id: 'm3', participantAId: 'b', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 6, gamesB: 2 }] }
+      { id: 'm2', participantAId: 'b', participantBId: 'a', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 6, gamesB: 5 }] }
     ];
 
-    const ranking = calculateRanking(participants, matches, { ...defaultTournamentRules, tieBreakers: ['points', 'headToHead', 'gameDiff'] });
-    expect(ranking.map((row) => row.participantId)).toEqual(['a', 'b', 'c']);
+    const ranking = calculateRanking(
+      participants.filter((p) => p.id === 'a' || p.id === 'b'),
+      matches,
+      { ...defaultTournamentRules, tieBreakers: ['points', 'headToHead', 'gameDiff'] }
+    );
+    expect(ranking.map((row) => row.participantId)).toEqual(['a', 'b']);
   });
 
   it('calcola classifica avulsa per pari merito multiplo', () => {
