@@ -210,6 +210,7 @@ Per avviare solo il container applicativo, collegandolo a un database già esist
 docker run --rm \
   --name padel-app \
   --env-file .env \
+  -e 'DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/padel_tournament_manager?schema=public' \
   -p 3000:3000 \
   padel-tournament-manager:latest
 ```
