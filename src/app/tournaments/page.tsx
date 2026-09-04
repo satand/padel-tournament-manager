@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { prisma } from '@/lib/server/db';
 import { DeleteTournamentButton } from '@/components/DeleteTournamentButton';
 
+export const dynamic = 'force-dynamic';
+
 export default async function TournamentsListPage() {
   const tournaments = await prisma.tournament.findMany({
     orderBy: { createdAt: 'desc' },
