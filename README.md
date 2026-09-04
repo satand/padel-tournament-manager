@@ -69,10 +69,12 @@ flowchart TD
 Il file `.env.example` contiene le variabili minime attese:
 
 ```bash
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/padel_tournament_manager?schema=public"
-JWT_SECRET="change-me-in-production"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/padel_tournament_manager?schema=public
+JWT_SECRET=change-me-in-production
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
+
+Nota: i valori non devono essere racchiusi tra virgolette. Il formato `KEY=VALUE` senza virgolette funziona sia con Next.js (dotenv) sia con `docker run --env-file` / `docker compose env_file`, che non rimuovono le virgolette dai valori.
 
 Per la demo senza database puoi comunque tenere il file `.env` pronto, ma le funzionalità che scrivono sul database richiedono una `DATABASE_URL` valida.
 
