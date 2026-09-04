@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16
+    container_name: padel-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-padel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-padel_tournament_manager}
+    ports:
+      - "5432:5432"
+    volumes:
+      - padel-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-padel} -d ${POSTGRES_DB:-padel_tournament_manager}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: padel-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-padel}:${POSTGRES_PASSWORD:-change-me}@db:5432/${POSTGRES_DB:-padel_tournament_manager}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+
+volumes:
+  padel-postgres-data:
