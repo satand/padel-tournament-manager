@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
 const FIRST_NAMES = ['Marco', 'Luca', 'Davide', 'Andrea', 'Paolo', 'Enrico', 'Fabio', 'Stefano', 'Alessio', 'Simone', 'Mattia', 'Riccardo', 'Giorgio', 'Pietro', 'Tommaso', 'Lorenzo', 'Federico', 'Nicola', 'Claudio', 'Dario'];
@@ -44,6 +45,9 @@ export function QuickSeedTitle() {
   const [count, setCount] = useState('30');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   function onTitleClick() {
     const t = Date.now();
@@ -127,8 +131,8 @@ export function QuickSeedTitle() {
     <>
       <h1 onClick={onTitleClick} style={{ cursor: 'default' }}>I tuoi tornei</h1>
 
-      {open && (
-        <div onClick={reset} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+      {open && mounted && createPortal((
+        <div onClick={reset} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2147483000, padding: 16 }}>
           <div onClick={(e) => e.stopPropagation()} className="panel" style={{ width: 'min(460px, 100%)', margin: 0 }}>
             <h2 style={{ marginTop: 0 }}>Genera torneo di prova</h2>
             <p style={{ color: 'var(--muted)', fontSize: 13 }}>Crea un torneo in bozza già configurato con un numero di coppie generate automaticamente. Potrai eliminarlo dalla lista.</p>
@@ -156,7 +160,7 @@ export function QuickSeedTitle() {
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
     </>
   );
 }
