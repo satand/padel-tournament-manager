@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/server/db';
-import { generateRoundRobinMatches, generateKnockoutBracket, generateAmericanoRounds, assignSchedule } from '@/lib/domain/scheduler';
-import type { Participant } from '@/lib/domain/types';
+import { generateRoundRobinMatches, assignSchedule } from '@/lib/domain/scheduler';
+import { generateBalancedGroups, defaultGroupNames } from '@/lib/domain/draw';
+import type { Match as DomainMatch, Participant } from '@/lib/domain/types';
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -14,12 +15,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       settings: true,
       participants: true,
       courts: { orderBy: { order: 'asc' } },
-      matches: { select: { id: true } },
-    },
+      matches: { select: { id: true } }
+    }
   });
 
   if (!tournament) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
-  if (tournament.participants.length < 2) return NextResponse.json({ error: 'Servono almeno 2 partecipanti per generare il calendario.' }, { status: 400 });
+  if (tournament.participants.length < 2) return NextResponse.json({ error: 'Servono almeno 2 coppie per generare il calendario.' }, { status: 400 });
 
   if (tournament.matches.length > 0 && !regenerate) {
     return NextResponse.json({ error: 'Il calendario è già stato generato. Usa l\'opzione rigenera per ricrearlo.' }, { status: 400 });
@@ -30,49 +31,61 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     await prisma.matchResult.deleteMany({ where: { match: { tournamentId: id } } });
     await prisma.mVPVote.deleteMany({ where: { tournamentId: id } });
     await prisma.match.deleteMany({ where: { tournamentId: id } });
+    await prisma.tournamentParticipant.updateMany({ where: { tournamentId: id }, data: { groupId: null } });
+    await prisma.tournamentGroup.deleteMany({ where: { tournamentId: id } });
   }
 
-  const participants: Participant[] = tournament.participants.map((p) => ({
+  const domainParticipants: Participant[] = tournament.participants.map((p) => ({
     id: p.id,
     displayName: p.displayName,
-    type: p.type as 'PLAYER' | 'TEAM',
-    playerIds: p.playerId ? [p.playerId] : [],
+    type: 'TEAM',
+    level: p.level ?? undefined,
+    playerIds: [],
     seed: p.seed ?? undefined,
-    isWithdrawn: p.isWithdrawn,
+    isWithdrawn: p.isWithdrawn
   }));
 
-  let generatedMatches;
-  const format = tournament.format;
+  const desiredGroups = tournament.settings?.groupCount ?? (tournament.format === 'GROUPS_PLUS_FINALS' ? 2 : 1);
+  const activeCount = domainParticipants.filter((p) => !p.isWithdrawn).length;
+  const groupCount = Math.min(Math.max(1, desiredGroups), Math.max(1, Math.floor(activeCount / 2)));
 
-  if (format === 'KNOCKOUT') {
-    generatedMatches = generateKnockoutBracket(participants);
-  } else if (format === 'AMERICANO') {
-    const rounds = Math.max(3, participants.length - 1);
-    generatedMatches = generateAmericanoRounds(participants, rounds);
-  } else {
-    generatedMatches = generateRoundRobinMatches(participants);
+  const buckets = generateBalancedGroups(domainParticipants, groupCount).filter((bucket) => bucket.length >= 1);
+  const names = defaultGroupNames(buckets.length);
+
+  const groupRows = [];
+  for (let i = 0; i < buckets.length; i += 1) {
+    const group = await prisma.tournamentGroup.create({
+      data: { tournamentId: id, name: names[i], sortOrder: i }
+    });
+    groupRows.push(group);
+    const ids = buckets[i].map((p) => p.id);
+    await prisma.tournamentParticipant.updateMany({ where: { id: { in: ids } }, data: { groupId: group.id } });
+  }
+
+  let generatedMatches: DomainMatch[] = [];
+  for (const group of groupRows) {
+    const groupParticipants = domainParticipants.filter((p) => buckets[group.sortOrder]?.some((b) => b.id === p.id));
+    generatedMatches = generatedMatches.concat(generateRoundRobinMatches(groupParticipants, group.id));
   }
 
   let courts = tournament.courts;
   if (courts.length === 0) {
     const courtsCount = tournament.settings?.courtsCount ?? 2;
     const created = [];
-    for (let i = 1; i <= courtsCount; i++) {
-      const court = await prisma.court.create({
-        data: { tournamentId: id, name: `Campo ${i}`, order: i }
-      });
+    for (let i = 1; i <= courtsCount; i += 1) {
+      const court = await prisma.court.create({ data: { tournamentId: id, name: `Campo ${i}`, order: i } });
       created.push(court);
     }
     courts = created;
   }
 
   const scheduledMatches = assignSchedule(generatedMatches, {
-    participants,
+    participants: domainParticipants,
     courts: courts.map((c) => ({ id: c.id, name: c.name, order: c.order })),
     startsAt: tournament.startsAt?.toISOString() ?? new Date().toISOString(),
     matchDurationMinutes: tournament.settings?.matchDurationMinutes ?? 30,
     minRestMinutes: tournament.settings?.minRestMinutes ?? 15,
-    maxMatchesPerPlayerDay: tournament.settings?.maxMatchesPerPlayerDay ?? 6,
+    maxMatchesPerPlayerDay: tournament.settings?.maxMatchesPerPlayerDay ?? 6
   });
 
   for (const match of scheduledMatches) {
@@ -81,14 +94,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         tournamentId: id,
         participantAId: match.participantAId,
         participantBId: match.participantBId,
+        groupId: match.groupId ?? null,
         status: match.status,
         winnerId: match.winnerId ?? null,
         courtId: match.courtId ?? null,
         scheduledAt: match.scheduledAt ? new Date(match.scheduledAt) : null,
         roundIndex: match.roundIndex ?? 1,
         phase: match.phase ?? 'group',
-        phaseWeight: match.phaseWeight ?? 1,
-      },
+        phaseWeight: match.phaseWeight ?? 1
+      }
     });
   }
 
@@ -96,5 +110,5 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     await prisma.tournament.update({ where: { id }, data: { status: 'READY' } });
   }
 
-  return NextResponse.json({ matchesCreated: scheduledMatches.length }, { status: 201 });
+  return NextResponse.json({ matchesCreated: scheduledMatches.length, groupsCreated: groupRows.length }, { status: 201 });
 }

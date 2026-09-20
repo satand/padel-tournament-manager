@@ -3,37 +3,24 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const formats = [
-  { value: 'FIXED_PAIRS', label: 'Coppie fisse' },
-  { value: 'INDIVIDUAL_ROTATION', label: 'Rotazione individuale' },
-  { value: 'GROUPS', label: 'Gironi' },
-  { value: 'KNOCKOUT', label: 'Eliminazione diretta' },
-  { value: 'GROUPS_PLUS_FINALS', label: 'Gironi + fase finale' },
-  { value: 'ROUND_ROBIN', label: 'Round Robin' },
-  { value: 'LEAGUE', label: 'Campionato' },
-  { value: 'AMERICANO', label: 'Americano' },
-  { value: 'MEXICANO', label: 'Mexicano' },
-  { value: 'KING_QUEEN_COURT', label: 'King/Queen of the Court' },
-  { value: 'CUSTOM', label: 'Personalizzato' },
-];
-
-const participantTypes = [
-  { value: 'TEAM', label: 'Coppie' },
-  { value: 'PLAYER', label: 'Giocatori singoli' },
-];
-
 type WizardData = {
   name: string;
   startsAt: string;
   courtsCount: number;
-  participantType: string;
-  format: string;
-  finalPhase: string;
-  participants: string;
+  groupCount: number;
+  qualifiedPerGroup: number;
+  finalStartRound: string;
+  splitGoldSilver: boolean;
+  scoringMode: string;
+  maxSets: number;
+  gamesPerSet: number;
+  targetGames: number;
   pointsWin: number;
   pointsLoss: number;
-  setsPerMatch: number;
-  gamesPerSet: number;
+  mvpEnabled: boolean;
+  mvpThroughPhase: string;
+  tier1: string;
+  tier2: string;
   matchDurationMinutes: number;
   minRestMinutes: number;
   maxMatchesPerPlayerDay: number;
@@ -44,27 +31,31 @@ const initialData: WizardData = {
   name: '',
   startsAt: '',
   courtsCount: 2,
-  participantType: 'TEAM',
-  format: 'ROUND_ROBIN',
-  finalPhase: 'none',
-  participants: '',
+  groupCount: 2,
+  qualifiedPerGroup: 2,
+  finalStartRound: 'SF',
+  splitGoldSilver: true,
+  scoringMode: 'SETS',
+  maxSets: 1,
+  gamesPerSet: 6,
+  targetGames: 21,
   pointsWin: 3,
   pointsLoss: 0,
-  setsPerMatch: 1,
-  gamesPerSet: 6,
+  mvpEnabled: true,
+  mvpThroughPhase: 'FINAL',
+  tier1: '4.5',
+  tier2: '3.5',
   matchDurationMinutes: 30,
   minRestMinutes: 15,
   maxMatchesPerPlayerDay: 6,
-  timeSlots: '09:00-13:00; 15:00-19:00',
+  timeSlots: '09:00-13:00; 15:00-19:00'
 };
 
 export function TournamentWizard() {
   const router = useRouter();
-  const [step, setStep] = useState(1);
   const [data, setData] = useState<WizardData>(initialData);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ id: string; slug: string } | null>(null);
 
   function update<K extends keyof WizardData>(key: K, value: WizardData[K]) {
     setData((prev) => ({ ...prev, [key]: value }));
@@ -73,12 +64,12 @@ export function TournamentWizard() {
   async function handleCreate() {
     if (!data.name.trim()) {
       setError('Il nome del torneo è obbligatorio.');
-      setStep(1);
       return;
     }
-
     setSubmitting(true);
     setError(null);
+
+    const tierThresholds = [Number(data.tier1), Number(data.tier2)].filter((n) => Number.isFinite(n) && n > 0);
 
     try {
       const res = await fetch('/api/tournaments', {
@@ -86,241 +77,149 @@ export function TournamentWizard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: data.name,
-          description: `Formato: ${data.format}`,
-          format: data.format,
-          participantType: data.participantType,
+          format: 'GROUPS_PLUS_FINALS',
+          startsAt: data.startsAt ? new Date(data.startsAt).toISOString() : undefined,
           courtsCount: data.courtsCount,
-          setsPerMatch: data.setsPerMatch,
+          groupCount: data.groupCount,
+          qualifiedPerGroup: data.qualifiedPerGroup,
+          finalStartRound: data.finalStartRound,
+          splitGoldSilver: data.splitGoldSilver,
+          scoringMode: data.scoringMode,
+          maxSets: data.maxSets,
+          setsPerMatch: data.maxSets,
           gamesPerSet: data.gamesPerSet,
+          targetGames: data.scoringMode === 'GAMES_TARGET' ? data.targetGames : undefined,
           pointsWin: data.pointsWin,
           pointsLoss: data.pointsLoss,
+          mvpEnabled: data.mvpEnabled,
+          mvpThroughPhase: data.mvpThroughPhase,
+          tierThresholds,
           matchDurationMinutes: data.matchDurationMinutes,
           minRestMinutes: data.minRestMinutes,
           maxMatchesPerPlayerDay: data.maxMatchesPerPlayerDay,
-          timeSlots: data.timeSlots || undefined,
-          finalPhase: data.finalPhase !== 'none' ? data.finalPhase : undefined,
-          startsAt: data.startsAt || undefined,
-          participants: data.participants
-            .split('\n')
-            .map((l) => l.trim())
-            .filter(Boolean),
-        }),
+          timeSlots: data.timeSlots || undefined
+        })
       });
-
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? `Errore dal server (${res.status})`);
       }
-
       const { tournament } = await res.json();
-      setCreated({ id: tournament.id, slug: tournament.slug });
+      router.push(`/tournaments/${tournament.slug ?? tournament.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Errore durante la creazione del torneo.');
-    } finally {
       setSubmitting(false);
     }
   }
 
-  function handleNext() {
-    if (step === 6) {
-      handleCreate();
-    } else {
-      setStep(step + 1);
-    }
-  }
-
-  const stepLabels = ['Dati', 'Formato', 'Partecipanti', 'Regole', 'Calendario', 'Conferma'];
+  const sectionStyle = { marginTop: 16 } as const;
 
   return (
     <section className="panel">
-      <div className="steps">
-        {stepLabels.map((label, index) => (
-          <div
-            className="step"
-            key={label}
-            style={{
-              borderColor: step === index + 1 ? 'var(--accent)' : undefined,
-              cursor: index + 1 < step ? 'pointer' : undefined,
-            }}
-            onClick={() => { if (index + 1 < step) setStep(index + 1); }}
-          >
-            <strong>{index + 1}</strong>{label}
-          </div>
-        ))}
+      <h1>Nuovo torneo</h1>
+      <p className="lead">Definisci il tipo di torneo. Le coppie iscritte si aggiungono dopo, nella pagina di amministrazione.</p>
+
+      {error && <div style={{ padding: '12px 16px', borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', marginBottom: 16 }}>{error}</div>}
+
+      <div style={sectionStyle}>
+        <h3>Dati generali</h3>
+        <div className="form-grid">
+          <div className="field"><label>Nome torneo</label><input placeholder="Es. Open Padel Estate" value={data.name} onChange={(e) => update('name', e.target.value)} /></div>
+          <div className="field"><label>Data inizio</label><input type="datetime-local" value={data.startsAt} onChange={(e) => update('startsAt', e.target.value)} /></div>
+        </div>
       </div>
 
-      {error && (
-        <div style={{ padding: '12px 16px', borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', marginBottom: 16 }}>
-          {error}
-        </div>
-      )}
-
-      {created && (
-        <div style={{ padding: '16px', borderRadius: 12, background: '#f0fdf4', border: '1px solid #bbf7d0', marginBottom: 16 }}>
-          <p style={{ margin: 0, fontWeight: 700, color: '#166534' }}>Torneo creato con successo!</p>
-          <div className="actions" style={{ marginTop: 12 }}>
-            <button className="button" onClick={() => router.push(`/tournaments/${created.slug}`)}>
-              Apri dashboard torneo
-            </button>
-            <button className="button secondary" onClick={() => { setCreated(null); setData(initialData); setStep(1); }}>
-              Crea un altro torneo
-            </button>
+      <div style={sectionStyle}>
+        <h3>Formato: gironi + fase finale</h3>
+        <div className="form-grid">
+          <div className="field"><label>Numero di gironi</label><input type="number" min={1} value={data.groupCount} onChange={(e) => update('groupCount', Number(e.target.value))} /></div>
+          <div className="field"><label>Qualificati per girone</label><input type="number" min={1} value={data.qualifiedPerGroup} onChange={(e) => update('qualifiedPerGroup', Number(e.target.value))} /></div>
+          <div className="field"><label>Fase finale da</label>
+            <select value={data.finalStartRound} onChange={(e) => update('finalStartRound', e.target.value)}>
+              <option value="R16">Sedicesimi</option>
+              <option value="R8">Ottavi</option>
+              <option value="QF">Quarti</option>
+              <option value="SF">Semifinali</option>
+              <option value="FINAL">Solo finale</option>
+            </select>
+          </div>
+          <div className="field"><label>Tabelloni</label>
+            <select value={data.splitGoldSilver ? 'gold-silver' : 'single'} onChange={(e) => update('splitGoldSilver', e.target.value === 'gold-silver')}>
+              <option value="gold-silver">Gold + Silver</option>
+              <option value="single">Tabellone unico</option>
+            </select>
           </div>
         </div>
-      )}
+      </div>
 
-      {!created && (
-        <>
-          {step === 1 && (
-            <div className="form-grid">
-              <div className="field">
-                <label>Nome torneo</label>
-                <input placeholder="Es. Open Padel Estate" value={data.name} onChange={(e) => update('name', e.target.value)} />
-              </div>
-              <div className="field">
-                <label>Data inizio</label>
-                <input type="datetime-local" value={data.startsAt} onChange={(e) => update('startsAt', e.target.value)} />
-              </div>
-              <div className="field">
-                <label>Campi disponibili</label>
-                <input type="number" min={1} value={data.courtsCount} onChange={(e) => update('courtsCount', Number(e.target.value))} />
-              </div>
-              <div className="field">
-                <label>Tipo partecipanti</label>
-                <select value={data.participantType} onChange={(e) => update('participantType', e.target.value)}>
-                  {participantTypes.map((pt) => <option key={pt.value} value={pt.value}>{pt.label}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="form-grid">
-              <div className="field">
-                <label>Formato</label>
-                <select value={data.format} onChange={(e) => update('format', e.target.value)}>
-                  {formats.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-                </select>
-              </div>
-              <div className="field">
-                <label>Fase finale</label>
-                <select value={data.finalPhase} onChange={(e) => update('finalPhase', e.target.value)}>
-                  <option value="none">Disattivata</option>
-                  <option value="semi">Semifinali + finale</option>
-                  <option value="quarter">Quarti + semifinali + finale</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="form-grid">
-              <div className="field">
-                <label>Import CSV/Excel</label>
-                <input type="file" accept=".csv,.xlsx" />
-              </div>
-              <div className="field">
-                <label>Aggiunta rapida</label>
-                <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 6px' }}>
-                  {data.participantType === 'TEAM'
-                    ? 'Inserisci una coppia per riga, separando i due giocatori con / (slash).'
-                    : 'Inserisci un giocatore per riga (nome e cognome).'}
-                </p>
-                <textarea
-                  rows={5}
-                  placeholder={data.participantType === 'TEAM'
-                    ? 'Marco Rossi / Luca Bianchi\nDavide Ferrari / Andrea Gallo\nPaolo Neri / Enrico Conti'
-                    : 'Marco Rossi\nLuca Bianchi\nDavide Ferrari'}
-                  value={data.participants}
-                  onChange={(e) => update('participants', e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          {step === 4 && (
-            <div className="form-grid">
-              <div className="field">
-                <label>Punti vittoria</label>
-                <input type="number" value={data.pointsWin} onChange={(e) => update('pointsWin', Number(e.target.value))} />
-              </div>
-              <div className="field">
-                <label>Punti sconfitta</label>
-                <input type="number" value={data.pointsLoss} onChange={(e) => update('pointsLoss', Number(e.target.value))} />
-              </div>
-              <div className="field">
-                <label>Set per match</label>
-                <input type="number" min={1} max={5} value={data.setsPerMatch} onChange={(e) => update('setsPerMatch', Number(e.target.value))} />
-              </div>
-              <div className="field">
-                <label>Game per set</label>
-                <input type="number" min={1} value={data.gamesPerSet} onChange={(e) => update('gamesPerSet', Number(e.target.value))} />
-              </div>
-            </div>
-          )}
-
-          {step === 5 && (
-            <div className="form-grid">
-              <div className="field">
-                <label>Durata match (minuti)</label>
-                <input type="number" min={5} value={data.matchDurationMinutes} onChange={(e) => update('matchDurationMinutes', Number(e.target.value))} />
-              </div>
-              <div className="field">
-                <label>Recupero minimo (minuti)</label>
-                <input type="number" min={0} value={data.minRestMinutes} onChange={(e) => update('minRestMinutes', Number(e.target.value))} />
-              </div>
-              <div className="field">
-                <label>Max partite al giorno</label>
-                <input type="number" min={1} value={data.maxMatchesPerPlayerDay} onChange={(e) => update('maxMatchesPerPlayerDay', Number(e.target.value))} />
-              </div>
-              <div className="field">
-                <label>Fasce orarie</label>
-                <textarea rows={3} placeholder="09:00-13:00; 15:00-19:00" value={data.timeSlots} onChange={(e) => update('timeSlots', e.target.value)} />
-              </div>
-            </div>
-          )}
-
-          {step === 6 && (
-            <div>
-              <h3>Riepilogo torneo</h3>
-              <div className="form-grid">
-                <div className="stat"><div className="stat-label">Nome</div><div className="stat-value" style={{ fontSize: 18 }}>{data.name || '—'}</div></div>
-                <div className="stat"><div className="stat-label">Data inizio</div><div className="stat-value" style={{ fontSize: 18 }}>{data.startsAt ? new Date(data.startsAt).toLocaleString('it-IT', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</div></div>
-                <div className="stat"><div className="stat-label">Formato</div><div className="stat-value" style={{ fontSize: 18 }}>{formats.find((f) => f.value === data.format)?.label}</div></div>
-                <div className="stat"><div className="stat-label">Fase finale</div><div className="stat-value" style={{ fontSize: 18 }}>{data.finalPhase === 'semi' ? 'Semifinali + finale' : data.finalPhase === 'quarter' ? 'Quarti + semi + finale' : 'Disattivata'}</div></div>
-                <div className="stat"><div className="stat-label">Tipo partecipanti</div><div className="stat-value" style={{ fontSize: 18 }}>{participantTypes.find((p) => p.value === data.participantType)?.label}</div></div>
-                <div className="stat"><div className="stat-label">N. partecipanti</div><div className="stat-value" style={{ fontSize: 18 }}>{data.participants.split('\n').filter((l) => l.trim()).length || 0}</div></div>
-                <div className="stat"><div className="stat-label">Campi</div><div className="stat-value" style={{ fontSize: 18 }}>{data.courtsCount}</div></div>
-                <div className="stat"><div className="stat-label">Set per match</div><div className="stat-value" style={{ fontSize: 18 }}>{data.setsPerMatch}</div></div>
-                <div className="stat"><div className="stat-label">Game per set</div><div className="stat-value" style={{ fontSize: 18 }}>{data.gamesPerSet}</div></div>
-                <div className="stat"><div className="stat-label">Punti vittoria</div><div className="stat-value" style={{ fontSize: 18 }}>{data.pointsWin}</div></div>
-                <div className="stat"><div className="stat-label">Punti sconfitta</div><div className="stat-value" style={{ fontSize: 18 }}>{data.pointsLoss}</div></div>
-                <div className="stat"><div className="stat-label">Durata match</div><div className="stat-value" style={{ fontSize: 18 }}>{data.matchDurationMinutes} min</div></div>
-                <div className="stat"><div className="stat-label">Recupero minimo</div><div className="stat-value" style={{ fontSize: 18 }}>{data.minRestMinutes} min</div></div>
-                <div className="stat"><div className="stat-label">Max partite/giorno</div><div className="stat-value" style={{ fontSize: 18 }}>{data.maxMatchesPerPlayerDay}</div></div>
-                {data.timeSlots && <div className="stat"><div className="stat-label">Fasce orarie</div><div className="stat-value" style={{ fontSize: 14 }}>{data.timeSlots}</div></div>}
-              </div>
-              {data.participants.trim() && (
-                <div style={{ marginTop: 12 }}>
-                  <p style={{ color: 'var(--muted)', fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Lista partecipanti:</p>
-                  <ul style={{ margin: 0, paddingLeft: 20, color: 'var(--text)', fontSize: 14 }}>
-                    {data.participants.split('\n').filter((l) => l.trim()).map((l, i) => <li key={i}>{l.trim()}</li>)}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="actions">
-            <button className="button secondary" disabled={step === 1} onClick={() => setStep(Math.max(1, step - 1))}>
-              Indietro
-            </button>
-            <button className="button" disabled={submitting} onClick={handleNext}>
-              {submitting ? 'Creazione in corso...' : step === 6 ? 'Crea torneo' : 'Avanti'}
-            </button>
+      <div style={sectionStyle}>
+        <h3>Modalità punteggio</h3>
+        <div className="form-grid">
+          <div className="field"><label>Modalità</label>
+            <select value={data.scoringMode} onChange={(e) => update('scoringMode', e.target.value)}>
+              <option value="SETS">Set (al meglio di N)</option>
+              <option value="GAMES_TARGET">A target (primo a N game)</option>
+              <option value="TIME">A tempo</option>
+            </select>
           </div>
-        </>
-      )}
+          {data.scoringMode === 'SETS' && (
+            <>
+              <div className="field"><label>Set al meglio di</label><input type="number" min={1} max={3} value={data.maxSets} onChange={(e) => update('maxSets', Number(e.target.value))} /></div>
+              <div className="field"><label>Game per set</label><input type="number" min={1} value={data.gamesPerSet} onChange={(e) => update('gamesPerSet', Number(e.target.value))} /></div>
+            </>
+          )}
+          {data.scoringMode === 'GAMES_TARGET' && (
+            <div className="field"><label>Game da raggiungere</label><input type="number" min={1} value={data.targetGames} onChange={(e) => update('targetGames', Number(e.target.value))} /></div>
+          )}
+          {data.scoringMode === 'TIME' && (
+            <div className="field"><label>Durata partita (min)</label><input type="number" min={1} value={data.matchDurationMinutes} onChange={(e) => update('matchDurationMinutes', Number(e.target.value))} /></div>
+          )}
+          <div className="field"><label>Punti vittoria</label><input type="number" value={data.pointsWin} onChange={(e) => update('pointsWin', Number(e.target.value))} /></div>
+          <div className="field"><label>Punti sconfitta</label><input type="number" value={data.pointsLoss} onChange={(e) => update('pointsLoss', Number(e.target.value))} /></div>
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <h3>Fasce di livello (per gironi bilanciati)</h3>
+        <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 6px' }}>Soglie in discesa: livello ≥ 1ª soglia = 1ª fascia, ≥ 2ª soglia = 2ª fascia, altrimenti 3ª.</p>
+        <div className="form-grid">
+          <div className="field"><label>Soglia 1ª fascia</label><input type="number" step={0.1} placeholder="Es. 4.5" value={data.tier1} onChange={(e) => update('tier1', e.target.value)} /></div>
+          <div className="field"><label>Soglia 2ª fascia</label><input type="number" step={0.1} placeholder="Es. 3.5" value={data.tier2} onChange={(e) => update('tier2', e.target.value)} /></div>
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <h3>MVP</h3>
+        <div className="form-grid">
+          <div className="field"><label>MVP attivo</label>
+            <select value={data.mvpEnabled ? 'si' : 'no'} onChange={(e) => update('mvpEnabled', e.target.value === 'si')}><option value="si">Sì</option><option value="no">No</option></select>
+          </div>
+          <div className="field"><label>Conta MVP fino a</label>
+            <select value={data.mvpThroughPhase} onChange={(e) => update('mvpThroughPhase', e.target.value)}>
+              <option value="GROUP">Solo fase a gironi</option>
+              <option value="R16">Fino ai sedicesimi</option>
+              <option value="R8">Fino agli ottavi</option>
+              <option value="QF">Fino ai quarti</option>
+              <option value="SF">Fino alle semifinali</option>
+              <option value="FINAL">Fino alla finale</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <h3>Calendario (modificabile anche dopo)</h3>
+        <div className="form-grid">
+          <div className="field"><label>Campi disponibili</label><input type="number" min={1} value={data.courtsCount} onChange={(e) => update('courtsCount', Number(e.target.value))} /></div>
+          <div className="field"><label>Durata match (min)</label><input type="number" min={5} value={data.matchDurationMinutes} onChange={(e) => update('matchDurationMinutes', Number(e.target.value))} /></div>
+          <div className="field"><label>Recupero minimo (min)</label><input type="number" min={0} value={data.minRestMinutes} onChange={(e) => update('minRestMinutes', Number(e.target.value))} /></div>
+          <div className="field"><label>Max partite/giorno</label><input type="number" min={1} value={data.maxMatchesPerPlayerDay} onChange={(e) => update('maxMatchesPerPlayerDay', Number(e.target.value))} /></div>
+        </div>
+      </div>
+
+      <div className="actions" style={{ marginTop: 20 }}>
+        <button className="button" disabled={submitting} onClick={handleCreate}>{submitting ? 'Creazione...' : 'Crea torneo e aggiungi le coppie'}</button>
+      </div>
     </section>
   );
 }

@@ -6,9 +6,9 @@ const prisma = new PrismaClient();
 
 async function main() {
   const organizer = await prisma.user.upsert({
-    where: { email: 'organizer@example.com' },
+    where: { email: 'operatore@locale' },
     update: {},
-    create: { email: 'organizer@example.com', name: 'Organizzatore Demo', role: 'ORGANIZER' }
+    create: { email: 'operatore@locale', name: 'Operatore', role: 'ORGANIZER' }
   });
 
   const tournament = await prisma.tournament.upsert({
@@ -17,9 +17,8 @@ async function main() {
     create: {
       name: 'Luxury Padel Demo Open',
       slug: 'luxury-padel-demo-open',
-      description: 'Torneo demo completo con coppie fisse, round robin e MVP.',
+      description: 'Torneo demo con coppie fisse, round robin e MVP.',
       format: 'ROUND_ROBIN',
-      participantType: 'TEAM',
       organizerId: organizer.id,
       status: 'RUNNING',
       settings: {
@@ -76,8 +75,8 @@ async function main() {
     const createdParticipant = await prisma.tournamentParticipant.create({
       data: {
         tournamentId: tournament.id,
-        type: 'TEAM',
         displayName: participant.displayName,
+        level: undefined,
         teamId: team.id,
         seed: participant.seed,
         initialRank: participant.manualOrder

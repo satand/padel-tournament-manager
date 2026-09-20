@@ -2,10 +2,22 @@
 CREATE TYPE "UserRole" AS ENUM ('SUPER_ADMIN', 'ORGANIZER', 'REFEREE', 'PLAYER', 'PUBLIC_VIEWER');
 
 -- CreateEnum
-CREATE TYPE "TournamentFormat" AS ENUM ('FIXED_PAIRS', 'INDIVIDUAL_ROTATION', 'GROUPS', 'KNOCKOUT', 'GROUPS_PLUS_FINALS', 'ROUND_ROBIN', 'LEAGUE', 'AMERICANO', 'MEXICANO', 'KING_QUEEN_COURT', 'CUSTOM');
+CREATE TYPE "TournamentFormat" AS ENUM ('ROUND_ROBIN', 'GROUPS_PLUS_FINALS');
 
 -- CreateEnum
-CREATE TYPE "ParticipantType" AS ENUM ('PLAYER', 'TEAM');
+CREATE TYPE "ScoringMode" AS ENUM ('SETS', 'GAMES_TARGET', 'TIME');
+
+-- CreateEnum
+CREATE TYPE "FinalStartRound" AS ENUM ('R16', 'R8', 'QF', 'SF', 'FINAL');
+
+-- CreateEnum
+CREATE TYPE "MvpPhase" AS ENUM ('GROUP', 'R16', 'R8', 'QF', 'SF', 'FINAL');
+
+-- CreateEnum
+CREATE TYPE "Bracket" AS ENUM ('GOLD', 'SILVER');
+
+-- CreateEnum
+CREATE TYPE "MatchSource" AS ENUM ('WINNER', 'LOSER');
 
 -- CreateEnum
 CREATE TYPE "MatchStatus" AS ENUM ('SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'POSTPONED', 'WALKOVER', 'RETIRED');
@@ -38,7 +50,6 @@ CREATE TABLE "Tournament" (
     "format" "TournamentFormat" NOT NULL,
     "status" "TournamentStatus" NOT NULL DEFAULT 'DRAFT',
     "organizerId" TEXT NOT NULL,
-    "participantType" "ParticipantType" NOT NULL,
     "publicEnabled" BOOLEAN NOT NULL DEFAULT true,
     "publicToken" TEXT NOT NULL,
     "startsAt" TIMESTAMP(3),
@@ -66,6 +77,15 @@ CREATE TABLE "TournamentSettings" (
     "goldenPointEnabled" BOOLEAN NOT NULL DEFAULT true,
     "killerPointEnabled" BOOLEAN NOT NULL DEFAULT false,
     "mvpEnabled" BOOLEAN NOT NULL DEFAULT true,
+    "scoringMode" "ScoringMode" NOT NULL DEFAULT 'SETS',
+    "maxSets" INTEGER NOT NULL DEFAULT 1,
+    "targetGames" INTEGER,
+    "groupCount" INTEGER,
+    "qualifiedPerGroup" INTEGER NOT NULL DEFAULT 2,
+    "finalStartRound" "FinalStartRound" NOT NULL DEFAULT 'FINAL',
+    "splitGoldSilver" BOOLEAN NOT NULL DEFAULT false,
+    "mvpThroughPhase" "MvpPhase" NOT NULL DEFAULT 'FINAL',
+    "tierThresholds" JSONB,
     "mvpWeights" JSONB NOT NULL,
     "scoreRules" JSONB NOT NULL,
     "customRules" JSONB,
@@ -127,10 +147,9 @@ CREATE TABLE "TeamPlayer" (
 CREATE TABLE "TournamentParticipant" (
     "id" TEXT NOT NULL,
     "tournamentId" TEXT NOT NULL,
-    "type" "ParticipantType" NOT NULL,
     "displayName" TEXT NOT NULL,
-    "playerId" TEXT,
-    "teamId" TEXT,
+    "level" DOUBLE PRECISION,
+    "teamId" TEXT NOT NULL,
     "groupId" TEXT,
     "seed" INTEGER,
     "initialRank" INTEGER,
@@ -192,7 +211,11 @@ CREATE TABLE "Match" (
     "scheduledAt" TIMESTAMP(3),
     "roundIndex" INTEGER NOT NULL DEFAULT 1,
     "phase" TEXT NOT NULL DEFAULT 'group',
-    "bracketNode" TEXT,
+    "bracket" "Bracket",
+    "parentMatchIdA" TEXT,
+    "parentResultA" "MatchSource",
+    "parentMatchIdB" TEXT,
+    "parentResultB" "MatchSource",
     "status" "MatchStatus" NOT NULL DEFAULT 'SCHEDULED',
     "note" TEXT,
     "phaseWeight" DOUBLE PRECISION NOT NULL DEFAULT 1,
@@ -291,6 +314,7 @@ CREATE TABLE "MVPVote" (
     "voterId" TEXT,
     "source" TEXT NOT NULL DEFAULT 'organizer',
     "rating" DOUBLE PRECISION NOT NULL,
+    "penalty" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "weight" DOUBLE PRECISION NOT NULL DEFAULT 1,
     "notes" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -356,9 +380,6 @@ CREATE INDEX "Team_tournamentId_idx" ON "Team"("tournamentId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "TeamPlayer_teamId_playerId_key" ON "TeamPlayer"("teamId", "playerId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "TournamentParticipant_playerId_key" ON "TournamentParticipant"("playerId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "TournamentParticipant_teamId_key" ON "TournamentParticipant"("teamId");
@@ -454,10 +475,7 @@ ALTER TABLE "TeamPlayer" ADD CONSTRAINT "TeamPlayer_playerId_fkey" FOREIGN KEY (
 ALTER TABLE "TournamentParticipant" ADD CONSTRAINT "TournamentParticipant_tournamentId_fkey" FOREIGN KEY ("tournamentId") REFERENCES "Tournament"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "TournamentParticipant" ADD CONSTRAINT "TournamentParticipant_playerId_fkey" FOREIGN KEY ("playerId") REFERENCES "Player"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "TournamentParticipant" ADD CONSTRAINT "TournamentParticipant_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "TournamentParticipant" ADD CONSTRAINT "TournamentParticipant_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "TournamentParticipant" ADD CONSTRAINT "TournamentParticipant_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group"("id") ON DELETE SET NULL ON UPDATE CASCADE;

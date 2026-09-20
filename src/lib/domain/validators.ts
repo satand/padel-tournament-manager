@@ -20,6 +20,17 @@ export const resultPayloadSchema = z.object({
   mvpPenalty: z.number().min(0).max(10).optional()
 });
 
+export const coupleSchema = z.object({
+  teamName: z.string().trim().max(120).optional(),
+  player1: z.string().trim().min(1, 'Giocatore 1 obbligatorio'),
+  player2: z.string().trim().min(1, 'Giocatore 2 obbligatorio'),
+  level: z.number().min(0).max(10).optional()
+});
+
+export const couplesPayloadSchema = z.object({
+  couples: z.array(coupleSchema).min(1, 'Inserisci almeno una coppia')
+});
+
 export type ValidationIssue = {
   field: string;
   message: string;

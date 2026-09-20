@@ -1,11 +1,47 @@
 # Padel Tournament Manager
 
-Applicazione web e PWA per creare, gestire e consultare tornei di padel da desktop, smartphone e tablet.
+Applicazione web responsive per creare, gestire e consultare tornei di padel da desktop, smartphone e tablet.
 
 Il progetto supporta due modalità d'uso:
 
 1. **Demo senza database**, utile per esplorare interfaccia e flussi principali.
 2. **Modalità completa con PostgreSQL**, per creare tornei reali, salvare risultati e generare calendari persistenti.
+
+## Avvio con Docker (consigliato, anche senza esperienza)
+
+Serve soltanto **Docker Desktop** installato e in esecuzione sul PC. Le operazioni di ogni giorno sono racchiuse in semplici script nella cartella `docker/`.
+
+| Azione | macOS / Linux | Windows | Con npm | Cosa succede |
+|--------|---------------|---------|---------|--------------|
+| **Avviare** | `bash docker/start.sh` | doppio click `docker/start.bat` | `npm run docker:start` | Avvia app + database. Al primo avvio costruisce l'immagine. |
+| **Fermare** | `bash docker/stop.sh` | doppio click `docker/stop.bat` | `npm run docker:stop` | Ferma tutto. **I dati restano salvati.** |
+| **Riaggiornare dopo una modifica al software** | `bash docker/rebuild.sh` | doppio click `docker/rebuild.bat` | `npm run docker:rebuild` | Ricostruisce solo l'app e la riavvia. **Il database non viene toccato.** |
+| **Vedere i log** | `bash docker/logs.sh` | doppio click `docker/logs.bat` | `npm run docker:logs` | Mostra i log dell'app (Ctrl+C per uscire). |
+
+A avvio completato apri nel browser: **http://localhost:3000**
+
+Il primo avvio crea in automatico un file `.env` a partire da `.env.example` (valori locali); basta lasciarlo così per usare l'app sul proprio PC.
+
+> **Sicurezza dei dati.** `stop` e `rebuild` **non cancellano nulla**: tornei e risultati restano nel volume `padel-postgres-data`. L'unica operazione distruttiva che azzera il database è `down -v` (usarla solo quando si vuole ripartire da zero):
+>
+> ```bash
+> docker compose --env-file .env -f docker/docker-compose.yml down -v
+> ```
+
+### Comandi Docker manuali equivalenti
+
+Dalla cartella principale del progetto, gli script eseguono esattamente:
+
+```bash
+# Avvia app + database
+docker compose --env-file .env -f docker/docker-compose.yml up -d
+
+# Ferma (dati conservati)
+docker compose --env-file .env -f docker/docker-compose.yml down
+
+# Ricostruisci e riavvia solo l'app dopo una modifica al codice
+docker compose --env-file .env -f docker/docker-compose.yml up -d --build app
+```
 
 ## Architettura
 
@@ -13,7 +49,7 @@ Il progetto usa Next.js come shell applicativa e backend, con la logica di domin
 
 ```mermaid
 flowchart TD
-  browser["Browser / PWA"]
+  browser["Browser"]
   nextApp["Next.js App Router"]
   ui["Client Components"]
   api["Route Handlers API"]
@@ -31,17 +67,17 @@ flowchart TD
 
 ### Componenti principali
 
-- `src/app/layout.tsx`: shell globale, navigazione, metadati PWA e registrazione service worker.
+- `src/app/layout.tsx`: shell globale, navigazione e metadati applicativi.
 - `src/app/page.tsx`: home demo con dati statici.
 - `src/app/new-tournament/page.tsx`: entry point del wizard di creazione torneo.
-- `src/components/TournamentWizard.tsx`: wizard in 6 step che crea il torneo via API.
+- `src/components/TournamentWizard.tsx`: wizard guidato che crea il torneo via API.
 - `src/app/tournaments/page.tsx`: elenco dei tornei salvati nel database.
 - `src/app/tournaments/[id]/page.tsx`: dashboard organizzatore.
 - `src/app/public/[id]/page.tsx`: pagina pubblica read-only.
 - `src/app/api/*`: route handlers per CRUD tornei, calendario, partecipanti e risultati.
 - `src/lib/domain/*`: motore torneo puro per classifiche, MVP, validazione e scheduling.
 - `prisma/schema.prisma`: schema relazionale PostgreSQL.
-- `src/lib/server/*`: Prisma client, audit log e RBAC.
+- `src/lib/server/*`: Prisma client e audit log.
 - `src/lib/demo/demo-data.ts`: dataset demo senza database.
 
 ## Funzionalità incluse
@@ -52,17 +88,16 @@ flowchart TD
 - Gestione partecipanti, calendario e risultati.
 - Classifica automatica con scontri diretti e avulsa.
 - Classifica MVP con voti, pesi, bonus e penalità.
-- Scheduling round robin, knockout e americano semplificato.
+- Scheduling: gironi round robin e fase finale a eliminazione diretta.
 - Audit log delle modifiche principali.
-- PWA installabile su smartphone, tablet e desktop.
+- Interfaccia responsive per desktop, tablet e smartphone.
 - Test automatici sul motore di dominio.
 
 ## Requisiti
 
-- Node.js 20 o superiore.
-- npm.
-- PostgreSQL 16 o superiore per la modalità completa.
-- Docker opzionale, ma consigliato per PostgreSQL e per la produzione.
+- Docker o Podman con Docker Compose: e' il modo consigliato per avviare l'app (vedi "Avvio con Docker").
+- Node.js 20 e npm: servono solo per lo sviluppo o per eseguire l'app senza Docker.
+- PostgreSQL 16: fornito automaticamente dal container `db` quando usi Compose.
 
 ## Variabili d'ambiente
 
@@ -70,7 +105,9 @@ Il file `.env.example` contiene le variabili minime attese:
 
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/padel_tournament_manager?schema=public
-JWT_SECRET=change-me-in-production
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=padel_tournament_manager
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
@@ -177,6 +214,10 @@ npm run dev
 - `npm run prisma:generate` - genera Prisma Client.
 - `npm run prisma:migrate` - crea/applica migrazioni in sviluppo.
 - `npm run prisma:seed` - carica i dati demo nel database.
+- `npm run docker:start` - avvia app + database con Docker Compose (equivalente a `docker/start.sh`).
+- `npm run docker:stop` - ferma l'applicazione lasciando intatti i dati (equivalente a `docker/stop.sh`).
+- `npm run docker:rebuild` - ricostruisce e riavvia solo l'app dopo una modifica, senza toccare il database (equivalente a `docker/rebuild.sh`).
+- `npm run docker:logs` - mostra i log dell'app in tempo reale (equivalente a `docker/logs.sh`).
 
 ## Test
 
@@ -230,7 +271,6 @@ La soluzione consigliata è definita in [`docker/docker-compose.yml`](docker/doc
 - Installa Docker e il plugin Docker Compose.
 - Prepara un file `.env` con valori di produzione.
 - Scegli una password forte per PostgreSQL.
-- Imposta `JWT_SECRET` con un valore lungo e casuale.
 - Imposta `NEXT_PUBLIC_APP_URL` con l'URL pubblico reale.
 
 ### 2. Avvia l'intero stack con Docker Compose
@@ -288,10 +328,10 @@ src/app                  Pagine, layout e API Next.js
 src/components           Componenti UI e wizard
 src/lib/domain           Motore torneo testabile
 src/lib/demo             Dati demo statici
-src/lib/server           Prisma, RBAC e audit
+src/lib/server           Prisma client e audit log
 src/tests                Test unitari
 prisma/schema.prisma     Schema PostgreSQL
-public                   Manifest PWA, service worker e asset statici
+public                   Asset statici e icona
 scripts/seed.ts          Seed demo per PostgreSQL
 ```
 
@@ -321,7 +361,7 @@ Assicurati di avere un `Dockerfile` valido nel repository e che `npx prisma gene
 
 ## Roadmap breve
 
-- autenticazione completa;
+- login multi-organizzatore (oggi l'app e' pensata per un singolo operatore locale);
 - import Excel più ricco;
 - export PDF/XLSX server-side;
 - notifiche ai giocatori;

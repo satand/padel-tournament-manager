@@ -2,54 +2,128 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import type { TournamentSettings } from '@prisma/client';
 
-type ParticipantInfo = { id: string; displayName: string };
+type ParticipantRow = { id: string; displayName: string; level: number | null; players: { id: string; name: string }[] };
+type GroupRow = { id: string; name: string };
 
 type Props = {
   tournamentId: string;
-  participantType: string;
-  participantsCount: number;
+  status: string;
+  participants: ParticipantRow[];
   matchesCount: number;
-  participantsList: ParticipantInfo[];
+  groups: GroupRow[];
+  settings: TournamentSettings | null;
 };
 
-export function TournamentActions({ tournamentId, participantType, participantsCount, matchesCount, participantsList }: Props) {
+type CoupleForm = { participantId: string | null; teamName: string; player1: string; player2: string; level: string };
+const emptyCouple: CoupleForm = { participantId: null, teamName: '', player1: '', player2: '', level: '' };
+
+export function TournamentActions({ tournamentId, status, participants, matchesCount, groups, settings }: Props) {
   const router = useRouter();
-  const [participants, setParticipants] = useState('');
-  const [adding, setAdding] = useState(false);
+  const [couple, setCouple] = useState<CoupleForm>(emptyCouple);
+  const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  async function handleAddParticipants() {
-    const lines = participants.split('\n').map((l) => l.trim()).filter(Boolean);
-    if (lines.length === 0) {
-      setMessage({ type: 'error', text: 'Inserisci almeno un partecipante.' });
+  const [calendario, setCalendario] = useState({
+    courtsCount: settings?.courtsCount ?? 2,
+    matchDurationMinutes: settings?.matchDurationMinutes ?? 30,
+    minRestMinutes: settings?.minRestMinutes ?? 15,
+    maxMatchesPerPlayerDay: settings?.maxMatchesPerPlayerDay ?? 6
+  });
+  const [savingCal, setSavingCal] = useState(false);
+
+  function setMessageLater(type: 'success' | 'error', text: string) {
+    setMessage({ type, text });
+  }
+
+  function startEdit(p: ParticipantRow) {
+    setCouple({
+      participantId: p.id,
+      teamName: p.displayName.includes(' / ') ? '' : p.displayName,
+      player1: p.players[0]?.name ?? '',
+      player2: p.players[1]?.name ?? '',
+      level: p.level != null ? String(p.level) : ''
+    });
+  }
+
+  async function saveCouple() {
+    if (!couple.player1.trim() || !couple.player2.trim()) {
+      setMessageLater('error', 'Inserisci entrambi i giocatori della coppia.');
       return;
     }
-
-    setAdding(true);
+    setBusy(true);
     setMessage(null);
+    const payload = {
+      teamName: couple.teamName.trim() || undefined,
+      player1: couple.player1.trim(),
+      player2: couple.player2.trim(),
+      level: couple.level.trim() ? Number(couple.level) : undefined
+    };
     try {
-      const res = await fetch(`/api/tournaments/${tournamentId}/participants`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ participants: lines }),
-      });
+      const res = couple.participantId
+        ? await fetch(`/api/tournaments/${tournamentId}/participants`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ participantId: couple.participantId, ...payload })
+          })
+        : await fetch(`/api/tournaments/${tournamentId}/participants`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ couples: [payload] })
+          });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `Errore (${res.status})`);
+        throw new Error(typeof body.error === 'string' ? body.error : 'Errore nel salvataggio della coppia.');
       }
-      const data = await res.json();
-      setMessage({ type: 'success', text: `${data.count} partecipant${data.count === 1 ? 'e' : 'i'} aggiunti.` });
-      setParticipants('');
+      setMessageLater('success', couple.participantId ? 'Coppia aggiornata.' : 'Coppia aggiunta.');
+      setCouple(emptyCouple);
       router.refresh();
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Errore.' });
+      setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
     } finally {
-      setAdding(false);
+      setBusy(false);
+    }
+  }
+
+  async function deleteCouple(participantId: string) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/tournaments/${tournamentId}/participants?participantId=${participantId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(typeof body.error === 'string' ? body.error : 'Errore nell\'eliminazione.');
+      }
+      setMessageLater('success', 'Coppia eliminata.');
+      setConfirmDeleteId(null);
+      if (couple.participantId === participantId) setCouple(emptyCouple);
+      router.refresh();
+    } catch (err) {
+      setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveCalendario() {
+    setSavingCal(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/tournaments/${tournamentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(calendario)
+      });
+      if (!res.ok) throw new Error('Impossibile salvare il calendario.');
+      setMessageLater('success', 'Impostazioni calendario salvate.');
+      router.refresh();
+    } catch (err) {
+      setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
+    } finally {
+      setSavingCal(false);
     }
   }
 
@@ -58,179 +132,119 @@ export function TournamentActions({ tournamentId, participantType, participantsC
     setMessage(null);
     setConfirmRegenerate(false);
     try {
-      const res = await fetch(`/api/tournaments/${tournamentId}/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ regenerate }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `Errore (${res.status})`);
-      }
-      const data = await res.json();
-      setMessage({ type: 'success', text: `Calendario ${regenerate ? 'rigenerato' : 'generato'}: ${data.matchesCreated} partite create.` });
+      const res = await fetch(`/api/tournaments/${tournamentId}/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ regenerate }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Errore nella generazione.');
+      setMessageLater('success', `Calendario generato: ${data.matchesCreated} partite, ${data.groupsCreated} gironi.`);
       router.refresh();
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Errore.' });
+      setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
     } finally {
       setGenerating(false);
     }
   }
 
-  async function handleDeleteParticipant(participantId: string) {
-    setDeletingId(participantId);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/tournaments/${tournamentId}/participants?participantId=${participantId}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `Errore (${res.status})`);
-      }
-      setMessage({ type: 'success', text: 'Partecipante eliminato.' });
-      setConfirmDeleteId(null);
-      router.refresh();
-    } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Errore.' });
-    } finally {
-      setDeletingId(null);
-    }
-  }
+  const inputStyle = { width: '100%', border: '1px solid var(--border)', borderRadius: 12, padding: 10, fontFamily: 'inherit', fontSize: 14 } as const;
+  const editing = Boolean(couple.participantId);
 
   return (
     <section className="panel">
       <h2>Gestisci torneo</h2>
 
       {message && (
-        <div style={{
-          padding: '12px 16px',
-          borderRadius: 12,
-          background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
-          border: `1px solid ${message.type === 'success' ? '#bbf7d0' : '#fecaca'}`,
-          color: message.type === 'success' ? '#166534' : '#b91c1c',
-          marginBottom: 16,
-        }}>
+        <div style={{ padding: '12px 16px', borderRadius: 12, background: message.type === 'success' ? '#f0fdf4' : '#fef2f2', border: `1px solid ${message.type === 'success' ? '#bbf7d0' : '#fecaca'}`, color: message.type === 'success' ? '#166534' : '#b91c1c', marginBottom: 16 }}>
           {message.text}
         </div>
       )}
 
       <div className="grid grid-2">
         <div>
-          <h3>Partecipanti attuali ({participantsList.length})</h3>
-          <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {participantsList.length > 0 ? participantsList.map((p) => (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', borderRadius: 8, background: '#f8fafc', border: '1px solid var(--border)', fontSize: 14 }}>
-                <span>{p.displayName}</span>
-                {confirmDeleteId === p.id ? (
-                  <span style={{ display: 'inline-flex', gap: 4 }}>
-                    <button
-                      onClick={() => handleDeleteParticipant(p.id)}
-                      disabled={deletingId === p.id}
-                      style={{ border: 'none', background: 'var(--danger)', color: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      {deletingId === p.id ? '...' : 'Conferma'}
-                    </button>
-                    <button
-                      onClick={() => setConfirmDeleteId(null)}
-                      style={{ border: '1px solid var(--border)', background: 'white', color: 'var(--muted)', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                      Annulla
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => setConfirmDeleteId(p.id)}
-                    style={{ border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '3px 8px' }}
-                  >
-                    Elimina
-                  </button>
-                )}
-              </div>
-            )) : (
-              <p style={{ color: 'var(--muted)', fontSize: 14, margin: '4px 0' }}>Nessun partecipante inserito.</p>
-            )}
+          <h3>{editing ? 'Modifica coppia' : 'Aggiungi coppia'}</h3>
+          <div className="form-grid">
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Nome squadra (facoltativo)</label>
+              <input placeholder="Se vuoto: Giocatore1 / Giocatore2" value={couple.teamName} onChange={(e) => setCouple({ ...couple, teamName: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Giocatore 1</label>
+              <input placeholder="Nome e cognome" value={couple.player1} onChange={(e) => setCouple({ ...couple, player1: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Giocatore 2</label>
+              <input placeholder="Nome e cognome" value={couple.player2} onChange={(e) => setCouple({ ...couple, player2: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Livello (0–10, 1 decimale)</label>
+              <input type="number" min={0} max={10} step={0.1} placeholder="Es. 4.5" value={couple.level} onChange={(e) => setCouple({ ...couple, level: e.target.value })} />
+            </div>
+          </div>
+          <div className="actions">
+            <button className="button" disabled={busy} onClick={saveCouple}>{busy ? 'Salvataggio...' : editing ? 'Salva modifiche' : 'Aggiungi coppia'}</button>
+            {editing && <button className="button secondary" onClick={() => setCouple(emptyCouple)}>Annulla modifica</button>}
           </div>
         </div>
 
         <div>
-          <h3>Aggiungi partecipanti</h3>
-          <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 8 }}>
-            {participantType === 'TEAM'
-              ? 'Una coppia per riga, separando i nomi con / (es. "Marco Rossi / Luca Bianchi")'
-              : 'Un giocatore per riga (es. "Marco Rossi")'}
-          </p>
-          <textarea
-            rows={6}
-            placeholder={participantType === 'TEAM'
-              ? 'Marco Rossi / Luca Bianchi\nDavide Ferrari / Andrea Gallo\nPaolo Neri / Enrico Conti'
-              : 'Marco Rossi\nLuca Bianchi\nDavide Ferrari'}
-            value={participants}
-            onChange={(e) => setParticipants(e.target.value)}
-            style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 12, padding: 12, fontFamily: 'inherit', fontSize: 14, resize: 'vertical' }}
-          />
-          <div className="actions">
-            <button className="button" disabled={adding || !participants.trim()} onClick={handleAddParticipants}>
-              {adding ? 'Aggiunta in corso...' : 'Aggiungi partecipanti'}
-            </button>
+          <h3>Coppie iscritte ({participants.length})</h3>
+          <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {participants.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 14, margin: '4px 0' }}>Nessuna coppia inserita.</p>}
+            {participants.map((p) => (
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#f8fafc', border: '1px solid var(--border)', fontSize: 14 }}>
+                <span style={{ minWidth: 0 }}>
+                  <strong>{p.displayName}</strong>
+                  {p.level != null && <span style={{ color: 'var(--muted)' }}> · liv. {p.level}</span>}
+                </span>
+                <span style={{ display: 'inline-flex', gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => startEdit(p)} style={{ border: '1px solid var(--border)', background: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Modifica</button>
+                  {confirmDeleteId === p.id ? (
+                    <>
+                      <button onClick={() => deleteCouple(p.id)} disabled={busy} style={{ border: 'none', background: 'var(--danger)', color: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Conferma</button>
+                      <button onClick={() => setConfirmDeleteId(null)} style={{ border: '1px solid var(--border)', background: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer' }}>No</button>
+                    </>
+                  ) : (
+                    <button onClick={() => setConfirmDeleteId(p.id)} style={{ border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '3px 8px' }}>Elimina</button>
+                  )}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      <div style={{ marginTop: 16 }}>
+      <div style={{ marginTop: 20 }}>
+        <h3>Calendario</h3>
+        <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Parametri applicati alla generazione. Puoi modificarli e rigenerare in qualsiasi momento (i risultati vanno persi solo se rigeneri).</p>
+        <div className="form-grid">
+          <div className="field"><label>Nº campi</label><input type="number" min={1} value={calendario.courtsCount} onChange={(e) => setCalendario({ ...calendario, courtsCount: Number(e.target.value) })} style={inputStyle} /></div>
+          <div className="field"><label>Durata match (min)</label><input type="number" min={5} value={calendario.matchDurationMinutes} onChange={(e) => setCalendario({ ...calendario, matchDurationMinutes: Number(e.target.value) })} style={inputStyle} /></div>
+          <div className="field"><label>Recupero minimo (min)</label><input type="number" min={0} value={calendario.minRestMinutes} onChange={(e) => setCalendario({ ...calendario, minRestMinutes: Number(e.target.value) })} style={inputStyle} /></div>
+          <div className="field"><label>Max partite/giorno</label><input type="number" min={1} value={calendario.maxMatchesPerPlayerDay} onChange={(e) => setCalendario({ ...calendario, maxMatchesPerPlayerDay: Number(e.target.value) })} style={inputStyle} /></div>
+        </div>
+        <div className="actions"><button className="button secondary" disabled={savingCal} onClick={saveCalendario}>{savingCal ? 'Salvataggio...' : 'Salva calendario'}</button></div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
         <h3>Genera calendario</h3>
-          <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 8 }}>
-            Genera automaticamente le partite in base al formato del torneo e ai partecipanti inseriti.
-          </p>
-          <div className="grid grid-2" style={{ marginBottom: 12 }}>
-            <div className="stat"><div className="stat-label">Partecipanti attuali</div><div className="stat-value">{participantsCount}</div></div>
-            <div className="stat"><div className="stat-label">Partite generate</div><div className="stat-value">{matchesCount}</div></div>
-          </div>
-          <div className="actions">
-            {matchesCount === 0 && (
-              <button
-                className="button"
-                disabled={generating || participantsCount < 2}
-                onClick={() => handleGenerate(false)}
-              >
-                {generating ? 'Generazione in corso...' : 'Genera calendario'}
-              </button>
-            )}
-            {matchesCount > 0 && !confirmRegenerate && (
-              <button
-                className="button secondary"
-                disabled={generating || participantsCount < 2}
-                onClick={() => setConfirmRegenerate(true)}
-              >
-                Rigenera calendario
-              </button>
-            )}
-            {matchesCount > 0 && confirmRegenerate && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca' }}>
-                <span style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 700 }}>
-                  Le {matchesCount} partite e i risultati saranno eliminati. Continuare?
-                </span>
-                <button
-                  className="button"
-                  disabled={generating}
-                  style={{ background: 'var(--danger)', padding: '6px 14px', fontSize: 13 }}
-                  onClick={() => handleGenerate(true)}
-                >
-                  {generating ? 'Rigenerazione...' : 'Sì, rigenera'}
-                </button>
-                <button
-                  className="button secondary"
-                  style={{ padding: '6px 14px', fontSize: 13 }}
-                  onClick={() => setConfirmRegenerate(false)}
-                >
-                  Annulla
-                </button>
-              </span>
-            )}
-          </div>
-          {participantsCount < 2 && matchesCount === 0 && (
-            <p style={{ color: 'var(--warning)', fontSize: 13, marginTop: 8 }}>Servono almeno 2 partecipanti.</p>
+        <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 8 }}>
+          Crea i gironi bilanciati per livello e le partite di girone. Attive: {participants.length} coppie{groups.length > 0 ? `, ${groups.length} gironi` : ''}.
+        </p>
+        <div className="actions">
+          {matchesCount === 0 && (
+            <button className="button" disabled={generating || participants.length < 2} onClick={() => handleGenerate(false)}>{generating ? 'Generazione...' : 'Genera calendario'}</button>
           )}
+          {matchesCount > 0 && !confirmRegenerate && (
+            <button className="button secondary" disabled={generating || participants.length < 2} onClick={() => setConfirmRegenerate(true)}>Rigenera calendario</button>
+          )}
+          {matchesCount > 0 && confirmRegenerate && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca' }}>
+              <span style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 700 }}>Le {matchesCount} partite e i risultati saranno eliminati. Continuare?</span>
+              <button className="button" disabled={generating} style={{ background: 'var(--danger)', padding: '6px 14px', fontSize: 13 }} onClick={() => handleGenerate(true)}>{generating ? 'Rigenerazione...' : 'Sì, rigenera'}</button>
+              <button className="button secondary" style={{ padding: '6px 14px', fontSize: 13 }} onClick={() => setConfirmRegenerate(false)}>Annulla</button>
+            </span>
+          )}
+        </div>
+        {participants.length < 2 && <p style={{ color: 'var(--warning)', fontSize: 13, marginTop: 8 }}>Servono almeno 2 coppie.</p>}
+        {status === 'DRAFT' && matchesCount === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>Suggerimento: aggiungi le coppie con il livello, poi genera i gironi.</p>}
       </div>
     </section>
   );

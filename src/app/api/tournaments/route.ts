@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/db';
 import { defaultMVPSettings, defaultTournamentRules } from '@/lib/domain/types';
+
+function pick<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
+}
+
+function num(value: unknown, fallback: number): number {
+  const n = typeof value === 'string' ? Number(value) : value;
+  return typeof n === 'number' && Number.isFinite(n) ? n : fallback;
+}
 
 export async function GET() {
   const tournaments = await prisma.tournament.findMany({
@@ -11,112 +21,70 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  let slug = String(body.slug ?? body.name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const body = await request.json().catch(() => ({}));
+
+  const name = String(body.name ?? '').trim();
+  if (!name) return NextResponse.json({ error: 'Il nome del torneo è obbligatorio.' }, { status: 400 });
+
+  let slug = String(body.slug ?? name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  if (!slug) slug = 'torneo';
   const existingSlug = await prisma.tournament.findUnique({ where: { slug } });
-  if (existingSlug) {
-    slug = `${slug}-${Date.now().toString(36)}`;
-  }
+  if (existingSlug) slug = `${slug}-${Date.now().toString(36)}`;
+
   const organizer = await prisma.user.upsert({
-    where: { email: body.organizerEmail ?? 'organizer@example.com' },
+    where: { email: 'operatore@locale' },
     update: {},
-    create: { email: body.organizerEmail ?? 'organizer@example.com', name: body.organizerName ?? 'Organizzatore Demo', role: 'ORGANIZER' }
+    create: { email: 'operatore@locale', name: 'Operatore', role: 'ORGANIZER' }
   });
 
-  const participantType = body.participantType ?? 'TEAM';
-  const participantLines: string[] = (body.participants as string[] | undefined) ?? [];
+  const format = pick(body.format, ['ROUND_ROBIN', 'GROUPS_PLUS_FINALS'] as const, 'GROUPS_PLUS_FINALS');
+  const scoringMode = pick(body.scoringMode, ['SETS', 'GAMES_TARGET', 'TIME'] as const, 'SETS');
+  const finalStartRound = pick(body.finalStartRound, ['R16', 'R8', 'QF', 'SF', 'FINAL'] as const, 'FINAL');
+  const mvpThroughPhase = pick(body.mvpThroughPhase, ['GROUP', 'R16', 'R8', 'QF', 'SF', 'FINAL'] as const, 'FINAL');
+
+  const tierThresholds = Array.isArray(body.tierThresholds) ? body.tierThresholds.filter((t: unknown) => typeof t === 'number') : null;
 
   const tournament = await prisma.tournament.create({
     data: {
-      name: body.name,
+      name,
       slug,
-      description: body.description,
-      format: body.format ?? 'ROUND_ROBIN',
-      participantType,
+      description: body.description ?? null,
+      format,
+      status: 'DRAFT',
       organizerId: organizer.id,
       settings: {
         create: {
-          courtsCount: body.courtsCount ?? 2,
-          setsPerMatch: body.setsPerMatch ?? defaultTournamentRules.setsPerMatch,
-          gamesPerSet: body.gamesPerSet ?? defaultTournamentRules.gamesPerSet,
-          matchDurationMinutes: body.matchDurationMinutes ?? 30,
-          minRestMinutes: body.minRestMinutes ?? 15,
-          maxMatchesPerPlayerDay: body.maxMatchesPerPlayerDay ?? 6,
+          courtsCount: num(body.courtsCount, 2),
+          setsPerMatch: num(body.setsPerMatch ?? body.maxSets, defaultTournamentRules.setsPerMatch),
+          maxSets: num(body.setsPerMatch ?? body.maxSets, defaultTournamentRules.setsPerMatch),
+          gamesPerSet: num(body.gamesPerSet, defaultTournamentRules.gamesPerSet),
+          scoringMode,
+          targetGames: body.targetGames != null ? num(body.targetGames, 0) : null,
+          matchDurationMinutes: num(body.matchDurationMinutes, 30),
+          minRestMinutes: num(body.minRestMinutes, 15),
+          maxMatchesPerPlayerDay: num(body.maxMatchesPerPlayerDay, 6),
+          groupCount: body.groupCount != null ? num(body.groupCount, 1) : null,
+          qualifiedPerGroup: num(body.qualifiedPerGroup, 2),
+          finalStartRound,
+          splitGoldSilver: Boolean(body.splitGoldSilver),
+          mvpThroughPhase,
+          tierThresholds: tierThresholds && tierThresholds.length ? (tierThresholds as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
+          allowDraws: Boolean(body.allowDraws ?? defaultTournamentRules.allowDraws),
           tieBreakEnabled: body.tieBreakEnabled ?? true,
           goldenPointEnabled: body.goldenPointEnabled ?? true,
           mvpEnabled: body.mvpEnabled ?? true,
           scoreRules: {
             ...defaultTournamentRules.points,
-            win: body.pointsWin ?? defaultTournamentRules.points.win,
-            loss: body.pointsLoss ?? defaultTournamentRules.points.loss,
+            win: num(body.pointsWin, defaultTournamentRules.points.win),
+            loss: num(body.pointsLoss, defaultTournamentRules.points.loss)
           },
           mvpWeights: defaultMVPSettings,
-          customRules: body.finalPhase ? { finalPhase: body.finalPhase, timeSlots: body.timeSlots } : (body.timeSlots ? { timeSlots: body.timeSlots } : undefined),
+          customRules: body.timeSlots ? { timeSlots: body.timeSlots } : Prisma.DbNull
         }
       }
     },
     include: { settings: true }
   });
 
-  if (participantLines.length > 0) {
-    for (const line of participantLines) {
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-
-      if (participantType === 'TEAM') {
-        const names = trimmed.split(/[\/\-,]/).map((n) => n.trim()).filter(Boolean);
-        const playerRecords = [];
-        for (const name of names) {
-          const parts = name.split(/\s+/);
-          const firstName = parts[0] ?? name;
-          const lastName = parts.slice(1).join(' ') || '';
-          const player = await prisma.player.create({
-            data: { tournamentId: tournament.id, firstName, lastName }
-          });
-          playerRecords.push(player);
-        }
-
-        const team = await prisma.team.create({
-          data: {
-            tournamentId: tournament.id,
-            name: trimmed,
-            members: { create: playerRecords.map((p) => ({ playerId: p.id })) }
-          }
-        });
-
-        await prisma.tournamentParticipant.create({
-          data: {
-            tournamentId: tournament.id,
-            type: 'TEAM',
-            displayName: trimmed,
-            teamId: team.id
-          }
-        });
-      } else {
-        const parts = trimmed.split(/\s+/);
-        const firstName = parts[0] ?? trimmed;
-        const lastName = parts.slice(1).join(' ') || '';
-
-        const player = await prisma.player.create({
-          data: { tournamentId: tournament.id, firstName, lastName }
-        });
-
-        await prisma.tournamentParticipant.create({
-          data: {
-            tournamentId: tournament.id,
-            type: 'PLAYER',
-            displayName: trimmed,
-            playerId: player.id
-          }
-        });
-      }
-    }
-  }
-
-  const result = await prisma.tournament.findUnique({
-    where: { id: tournament.id },
-    include: { settings: true, _count: { select: { participants: true } } }
-  });
-
-  return NextResponse.json({ tournament: result }, { status: 201 });
+  return NextResponse.json({ tournament }, { status: 201 });
 }

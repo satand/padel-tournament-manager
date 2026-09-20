@@ -7,18 +7,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "tsx scripts/seed.ts"
+    "prisma:seed": "tsx scripts/seed.ts",
+    "docker:start": "docker compose --env-file .env -f docker/docker-compose.yml up -d",
+    "docker:stop": "docker compose --env-file .env -f docker/docker-compose.yml down",
+    "docker:rebuild": "docker compose --env-file .env -f docker/docker-compose.yml up -d --build app",
+    "docker:logs": "docker compose --env-file .env -f docker/docker-compose.yml logs -f app"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",
-    "bcryptjs": "^3.0.2",
     "date-fns": "^4.1.0",
-    "jose": "^6.0.13",
     "next": "^16.0.0",
     "papaparse": "^5.5.3",
     "react": "^19.2.0",
@@ -26,7 +27,6 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^24.6.0",
     "@types/papaparse": "^5.3.16",
     "@types/react": "^19.2.2",

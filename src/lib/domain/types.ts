@@ -1,4 +1,4 @@
-export type ParticipantType = 'PLAYER' | 'TEAM';
+export type ParticipantType = 'TEAM';
 
 export type MatchStatus =
   | 'SCHEDULED'
@@ -57,9 +57,11 @@ export type Participant = {
   displayName: string;
   type: ParticipantType;
   playerIds: string[];
+  level?: number;
   seed?: number;
   manualOrder?: number;
   isWithdrawn?: boolean;
+  groupId?: string;
 };
 
 export type Player = {

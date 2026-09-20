@@ -1,13 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
 import '@/styles/globals.css';
-import { ServiceWorkerRegister } from '@/components/ServiceWorkerRegister';
 
 export const metadata: Metadata = {
   title: 'Padel Tournament Manager',
-  description: 'Gestione completa tornei di Padel cross-platform',
-  manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'Padel Manager', statusBarStyle: 'default' }
+  description: 'Gestione tornei di Padel: gironi, fase finale, classifiche e MVP'
 };
 
 export const viewport: Viewport = {
@@ -21,7 +18,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="it">
       <body>
-        <ServiceWorkerRegister />
         <div className="app-shell">
           <header className="topbar">
             <Link href="/" className="brand" aria-label="Homepage Padel Tournament Manager">
@@ -35,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </nav>
           </header>
           {children}
-          <footer className="footer">PWA responsive, mobile-first, estendibile con API, PostgreSQL, audit log e test automatici.</footer>
+          <footer className="footer">Interfaccia responsive, mobile-first, con database PostgreSQL, audit log e test automatici.</footer>
         </div>
       </body>
     </html>

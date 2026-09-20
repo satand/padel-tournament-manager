@@ -45,33 +45,6 @@ export function generateRoundRobinMatches(participants: Participant[], groupId?:
   return matches;
 }
 
-export function generateAmericanoRounds(players: Participant[], rounds: number): Match[] {
-  if (players.length < 4) throw new Error('Il torneo americano richiede almeno 4 giocatori.');
-  if (players.length % 4 !== 0) throw new Error('Per questa base applicativa il torneo americano richiede un numero di giocatori multiplo di 4.');
-
-  const matches: Match[] = [];
-  let rotation = [...players];
-  for (let round = 1; round <= rounds; round += 1) {
-    for (let courtIndex = 0; courtIndex < rotation.length / 4; courtIndex += 1) {
-      const chunk = rotation.slice(courtIndex * 4, courtIndex * 4 + 4);
-      const teamA = createVirtualTeam(chunk[0], chunk[3], round, courtIndex, 'A');
-      const teamB = createVirtualTeam(chunk[1], chunk[2], round, courtIndex, 'B');
-      matches.push({
-        id: `americano-${round}-${courtIndex + 1}`,
-        participantAId: teamA.id,
-        participantBId: teamB.id,
-        status: 'SCHEDULED',
-        sets: [],
-        roundIndex: round,
-        phase: 'americano',
-        phaseWeight: 1
-      });
-    }
-    rotation = rotateKeepingFirst(rotation);
-  }
-  return matches;
-}
-
 export function generateKnockoutBracket(participants: Participant[], includeThirdPlace = true): Match[] {
   const seeded = [...participants].sort((a, b) => (a.seed ?? Number.MAX_SAFE_INTEGER) - (b.seed ?? Number.MAX_SAFE_INTEGER));
   const bracketSize = nextPowerOfTwo(seeded.length);
@@ -162,38 +135,6 @@ export function assignSchedule(matches: Match[], input: ScheduleInput): Match[] 
     }
   }
   return scheduled;
-}
-
-export function nextKingQueenRound(
-  orderedCourtParticipants: Participant[],
-  previousRoundResults: { courtIndex: number; winnerParticipantId: string; loserParticipantId: string }[]
-): Participant[] {
-  const next = [...orderedCourtParticipants];
-  for (const result of previousRoundResults) {
-    const winnerIndex = next.findIndex((p) => p.id === result.winnerParticipantId);
-    const loserIndex = next.findIndex((p) => p.id === result.loserParticipantId);
-    if (winnerIndex === -1 || loserIndex === -1) continue;
-    const promotedIndex = Math.max(0, winnerIndex - 1);
-    const relegatedIndex = Math.min(next.length - 1, loserIndex + 1);
-    [next[winnerIndex], next[promotedIndex]] = [next[promotedIndex], next[winnerIndex]];
-    [next[loserIndex], next[relegatedIndex]] = [next[relegatedIndex], next[loserIndex]];
-  }
-  return next;
-}
-
-function createVirtualTeam(a: Participant, b: Participant, round: number, courtIndex: number, side: string): Participant {
-  return {
-    id: `virtual-${round}-${courtIndex}-${side}-${a.id}-${b.id}`,
-    displayName: `${a.displayName} / ${b.displayName}`,
-    type: 'TEAM',
-    playerIds: [...a.playerIds, ...b.playerIds]
-  };
-}
-
-function rotateKeepingFirst<T>(items: T[]): T[] {
-  const [first, ...rest] = items;
-  rest.unshift(rest.pop()!);
-  return [first, ...rest];
 }
 
 function nextPowerOfTwo(value: number): number {
