@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/server/db';
 import { DeleteTournamentButton } from '@/components/DeleteTournamentButton';
+import { QuickSeedTitle } from '@/components/QuickSeedTitle';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ export default async function TournamentsListPage() {
   return (
     <main className="grid">
       <section className="panel">
-        <h1>I tuoi tornei</h1>
+        <QuickSeedTitle />
         <p className="lead">Tutti i tornei creati. Seleziona un torneo per aprire la dashboard organizzatore.</p>
         <div className="actions">
           <Link className="button" href="/new-tournament">Nuovo torneo</Link>
