@@ -14,10 +14,14 @@ export const tournamentInclude = {
 export type TournamentWithIncludes = Prisma.TournamentGetPayload<{ include: typeof tournamentInclude }>;
 
 export function buildRules(settings: TournamentWithIncludes['settings']): TournamentRules {
+  const scoringMode = (settings?.scoringMode ?? 'SETS') as TournamentRules['scoringMode'];
   return {
     ...defaultTournamentRules,
-    setsPerMatch: settings?.setsPerMatch ?? defaultTournamentRules.setsPerMatch,
-    gamesPerSet: settings?.gamesPerSet ?? defaultTournamentRules.gamesPerSet,
+    scoringMode,
+    setsPerMatch: scoringMode === 'GAMES_TARGET' ? 1 : (settings?.setsPerMatch ?? defaultTournamentRules.setsPerMatch),
+    gamesPerSet: scoringMode === 'GAMES_TARGET'
+      ? (settings?.targetGames ?? settings?.gamesPerSet ?? defaultTournamentRules.gamesPerSet)
+      : (settings?.gamesPerSet ?? defaultTournamentRules.gamesPerSet),
     allowDraws: settings?.allowDraws ?? defaultTournamentRules.allowDraws,
     tieBreakEnabled: settings?.tieBreakEnabled ?? defaultTournamentRules.tieBreakEnabled,
     superTieBreakEnabled: settings?.superTieBreakEnabled ?? defaultTournamentRules.superTieBreakEnabled,

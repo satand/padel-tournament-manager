@@ -39,26 +39,47 @@ export type ValidationIssue = {
 export function validateMatchResult(match: Match, rules: TournamentRules): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
-  if (match.participantAId === match.participantBId) {
+  if (match.participantAId && match.participantAId === match.participantBId) {
     issues.push({ field: 'participants', message: 'I due partecipanti della partita devono essere diversi.' });
   }
 
+  const mode = rules.scoringMode ?? 'SETS';
   if (match.status === 'COMPLETED') {
-    if (match.sets.length === 0) issues.push({ field: 'sets', message: 'Inserire almeno un set per una partita conclusa.' });
-    if (match.sets.length > rules.setsPerMatch) {
-      issues.push({ field: 'sets', message: `Numero set superiore al massimo previsto: ${rules.setsPerMatch}.` });
-    }
+    if (mode === 'TIME') {
+      if (!rules.allowDraws && !match.winnerId) {
+        issues.push({ field: 'winnerId', message: 'Nel formato a tempo è necessario indicare la coppia vincente.' });
+      }
+    } else if (mode === 'GAMES_TARGET') {
+      if (match.sets.length === 0) issues.push({ field: 'sets', message: 'Inserire il punteggio in game.' });
+      let gamesA = 0;
+      let gamesB = 0;
+      for (const set of match.sets) {
+        if (set.gamesA > 0 && set.gamesA === set.gamesB) {
+          issues.push({ field: `sets.${set.setNumber}`, message: 'Il punteggio non può essere in parità.' });
+        }
+        gamesA += set.gamesA;
+        gamesB += set.gamesB;
+      }
+      if (!rules.allowDraws && gamesA > 0 && gamesA === gamesB) {
+        issues.push({ field: 'sets', message: 'La partita non può terminare in parità.' });
+      }
+    } else {
+      if (match.sets.length === 0) issues.push({ field: 'sets', message: 'Inserire almeno un set per una partita conclusa.' });
+      if (match.sets.length > rules.setsPerMatch) {
+        issues.push({ field: 'sets', message: `Numero set superiore al massimo previsto: ${rules.setsPerMatch}.` });
+      }
 
-    for (const set of match.sets) {
-      issues.push(...validateSetScore(set, rules));
-    }
+      for (const set of match.sets) {
+        issues.push(...validateSetScore(set, rules));
+      }
 
-    const setsA = match.sets.filter((set) => set.gamesA > set.gamesB).length;
-    const setsB = match.sets.filter((set) => set.gamesB > set.gamesA).length;
-    const winsNeeded = Math.floor(rules.setsPerMatch / 2) + 1;
-    const hasWinner = setsA >= winsNeeded || setsB >= winsNeeded || rules.setsPerMatch === 1;
-    if (!rules.allowDraws && !hasWinner && setsA === setsB) {
-      issues.push({ field: 'sets', message: 'La partita non può terminare in pareggio con le regole attuali.' });
+      const setsA = match.sets.filter((set) => set.gamesA > set.gamesB).length;
+      const setsB = match.sets.filter((set) => set.gamesB > set.gamesA).length;
+      const winsNeeded = Math.floor(rules.setsPerMatch / 2) + 1;
+      const hasWinner = setsA >= winsNeeded || setsB >= winsNeeded || rules.setsPerMatch === 1;
+      if (!rules.allowDraws && !hasWinner && setsA === setsB) {
+        issues.push({ field: 'sets', message: 'La partita non può terminare in pareggio con le regole attuali.' });
+      }
     }
   }
 

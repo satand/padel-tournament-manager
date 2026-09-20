@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { defaultTournamentRules } from '@/lib/domain/types';
 import { validateMatchResult, resultPayloadSchema } from '@/lib/domain/validators';
 import { prisma } from '@/lib/server/db';
+import { buildRules } from '@/lib/server/serialize';
 import { writeAuditLog } from '@/lib/server/audit';
 import { resolveBracket } from '@/lib/server/bracket';
 
@@ -17,17 +17,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const match = await prisma.match.findUnique({ where: { id: matchId }, include: { sets: true } });
   if (!match) return NextResponse.json({ error: 'Partita non trovata.' }, { status: 404 });
 
-  const rules = {
-    ...defaultTournamentRules,
-    setsPerMatch: tournament.settings.setsPerMatch,
-    gamesPerSet: tournament.settings.gamesPerSet,
-    allowDraws: tournament.settings.allowDraws,
-    tieBreakEnabled: tournament.settings.tieBreakEnabled,
-    superTieBreakEnabled: tournament.settings.superTieBreakEnabled,
-    goldenPointEnabled: tournament.settings.goldenPointEnabled,
-    killerPointEnabled: tournament.settings.killerPointEnabled,
-    points: tournament.settings.scoreRules as typeof defaultTournamentRules.points
-  };
+  const rules = buildRules(tournament.settings);
 
   const domainMatch = {
     id: match.id,

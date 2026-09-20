@@ -63,10 +63,14 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
   const isCompleted = ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(match.status);
   const canEdit = editable || (!!tournamentId && !!rules && isCompleted);
   const hasBoth = Boolean(match.participantAId && match.participantBId);
-  const [open, setOpen] = useState(false);
+  const mode = rules?.scoringMode ?? 'SETS';
   const existingSet = match.sets[0];
+  const initialWinner: 'A' | 'B' | '' =
+    match.winnerId && match.winnerId === match.participantBId ? 'B' : match.winnerId && match.winnerId === match.participantAId ? 'A' : '';
+  const [open, setOpen] = useState(false);
   const [gamesA, setGamesA] = useState(existingSet?.gamesA ?? 0);
   const [gamesB, setGamesB] = useState(existingSet?.gamesB ?? 0);
+  const [winnerChoice, setWinnerChoice] = useState<'A' | 'B' | ''>(mode === 'TIME' ? initialWinner : '');
   const existingMvp = matchMvp[0];
   const [mvpPlayerId, setMvpPlayerId] = useState(existingMvp?.playerId ?? '');
   const [mvpRating, setMvpRating] = useState(existingMvp?.rating ?? 8);
@@ -81,8 +85,15 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
     label: playerNameMap.get(pid) ?? pid,
   })));
 
-  const preview: Match = rules ? { ...match, status: 'COMPLETED', sets: [{ setNumber: 1, gamesA, gamesB }] } : match;
+  const setsPayload = mode === 'TIME' ? [] : [{ setNumber: 1, gamesA, gamesB }];
+  const winnerId =
+    mode === 'TIME'
+      ? (winnerChoice === 'A' ? match.participantAId ?? undefined : winnerChoice === 'B' ? match.participantBId ?? undefined : undefined)
+      : (gamesA > gamesB ? match.participantAId ?? undefined : gamesB > gamesA ? match.participantBId ?? undefined : undefined);
+  const preview: Match = rules ? { ...match, status: 'COMPLETED', sets: setsPayload, winnerId } : match;
   const issues = rules ? validateMatchResult(preview, rules) : [];
+  const winnerDisplay =
+    match.winnerId && match.winnerId === match.participantBId ? nameB : match.winnerId && match.winnerId === match.participantAId ? nameA : '';
 
   async function handleSave() {
     if (!tournamentId || !rules) return;
@@ -94,8 +105,8 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: 'COMPLETED',
-          sets: [{ setNumber: 1, gamesA, gamesB }],
-          winnerId: gamesA > gamesB ? match.participantAId : match.participantBId,
+          sets: setsPayload,
+          winnerId,
           mvpPlayerId: mvpPlayerId || undefined,
           mvpRating: mvpPlayerId ? mvpRating : undefined,
           mvpPenalty: mvpPlayerId && mvpPenalty > 0 ? mvpPenalty : undefined,
@@ -108,7 +119,12 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
           : body.error ?? `Errore (${res.status})`;
         throw new Error(errorText);
       }
-      setMessage({ type: 'success', text: `Risultato salvato: ${nameA} ${gamesA} - ${gamesB} ${nameB}` });
+      setMessage({
+        type: 'success',
+        text: mode === 'TIME'
+          ? `Risultato salvato: vince ${winnerChoice === 'A' ? nameA : nameB}`
+          : `Risultato salvato: ${nameA} ${gamesA} - ${gamesB} ${nameB}`
+      });
       setOpen(false);
       router.refresh();
     } catch (err) {
@@ -146,6 +162,7 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
             onClick={() => {
               setGamesA(existingSet?.gamesA ?? 0);
               setGamesB(existingSet?.gamesB ?? 0);
+              setWinnerChoice(mode === 'TIME' ? initialWinner : '');
               setMvpPlayerId(existingMvp?.playerId ?? '');
               setMvpRating(existingMvp?.rating ?? 8);
               setMvpPenalty(existingMvp?.penalty ?? 0);
@@ -157,7 +174,11 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
         )}
       </div>
       <div className="score">
-        {match.sets.length ? match.sets.map((set) => `${set.gamesA}-${set.gamesB}`).join(' ') : match.status}
+        {match.sets.length
+          ? match.sets.map((set) => `${set.gamesA}-${set.gamesB}`).join(' ')
+          : winnerDisplay
+            ? `Vince: ${winnerDisplay}`
+            : match.status}
       </div>
       {!hasBoth && !isCompleted && (
         <div style={{ fontSize: 13, color: 'var(--muted)' }}>In attesa di definire gli avversari</div>
@@ -186,14 +207,27 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
       {open && rules && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 8 }}>
           <div className="form-grid">
-            <div className="field">
-              <label>Game {nameA.split(/[\/\s]/)[0]}</label>
-              <input type="number" min={0} value={gamesA} onChange={(e) => setGamesA(Number(e.target.value))} />
-            </div>
-            <div className="field">
-              <label>Game {nameB.split(/[\/\s]/)[0]}</label>
-              <input type="number" min={0} value={gamesB} onChange={(e) => setGamesB(Number(e.target.value))} />
-            </div>
+            {mode === 'TIME' ? (
+              <div className="field" style={{ gridColumn: '1 / -1' }}>
+                <label>Coppia vincente</label>
+                <select value={winnerChoice} onChange={(e) => setWinnerChoice(e.target.value as 'A' | 'B' | '')}>
+                  <option value="">Seleziona…</option>
+                  <option value="A">{nameA}</option>
+                  <option value="B">{nameB}</option>
+                </select>
+              </div>
+            ) : (
+              <>
+                <div className="field">
+                  <label>{mode === 'GAMES_TARGET' ? 'Punti ' : 'Game '}{nameA.split(/[\/\s]/)[0]}</label>
+                  <input type="number" min={0} value={gamesA} onChange={(e) => setGamesA(Number(e.target.value))} />
+                </div>
+                <div className="field">
+                  <label>{mode === 'GAMES_TARGET' ? 'Punti ' : 'Game '}{nameB.split(/[\/\s]/)[0]}</label>
+                  <input type="number" min={0} value={gamesB} onChange={(e) => setGamesB(Number(e.target.value))} />
+                </div>
+              </>
+            )}
             <div className="field">
               <label>MVP partita</label>
               <select value={mvpPlayerId} onChange={(e) => setMvpPlayerId(e.target.value)}>
@@ -216,7 +250,7 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
             </p>
           )}
           <div className="actions" style={{ marginTop: 10 }}>
-            <button className="button" disabled={issues.length > 0 || saving || (gamesA === 0 && gamesB === 0)} onClick={handleSave}>
+            <button className="button" disabled={issues.length > 0 || saving || (mode === 'TIME' ? !winnerChoice : (gamesA === 0 && gamesB === 0))} onClick={handleSave}>
               {saving ? 'Salvataggio...' : 'Salva risultato'}
             </button>
             <button className="button secondary" onClick={() => { setOpen(false); setMessage(null); }}>

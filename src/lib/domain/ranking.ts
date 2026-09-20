@@ -145,18 +145,40 @@ function summariseMatch(match: Match, rules: TournamentRules): {
   pointsA: number;
   pointsB: number;
 } {
+  const mode = rules.scoringMode ?? 'SETS';
+  const byId = (): 'A' | 'B' | 'DRAW' =>
+    match.winnerId === match.participantBId ? 'B' : match.winnerId === match.participantAId ? 'A' : 'DRAW';
+
   if (match.status === 'WALKOVER') {
-    const winner = match.winnerId === match.participantBId ? 'B' : 'A';
+    const winner: 'A' | 'B' = match.winnerId === match.participantBId ? 'B' : 'A';
+    const sets = mode === 'SETS' ? rules.setsPerMatch : 0;
+    const games = mode === 'SETS' ? rules.gamesPerSet : 0;
     return winner === 'A'
-      ? { setsA: rules.setsPerMatch, setsB: 0, gamesA: rules.gamesPerSet, gamesB: 0, winner, pointsA: rules.points.walkoverWin, pointsB: rules.points.walkoverLoss }
-      : { setsA: 0, setsB: rules.setsPerMatch, gamesA: 0, gamesB: rules.gamesPerSet, winner, pointsA: rules.points.walkoverLoss, pointsB: rules.points.walkoverWin };
+      ? { setsA: sets, setsB: 0, gamesA: games, gamesB: 0, winner, pointsA: rules.points.walkoverWin, pointsB: rules.points.walkoverLoss }
+      : { setsA: 0, setsB: sets, gamesA: 0, gamesB: games, winner, pointsA: rules.points.walkoverLoss, pointsB: rules.points.walkoverWin };
   }
 
   if (match.status === 'RETIRED') {
-    const winner = match.winnerId === match.participantBId ? 'B' : 'A';
+    const winner: 'A' | 'B' = match.winnerId === match.participantBId ? 'B' : 'A';
+    const agg = aggregateGames(match);
+    const set = mode === 'SETS' ? 1 : 0;
     return winner === 'A'
-      ? { setsA: 1, setsB: 0, gamesA: aggregateGames(match).gamesA, gamesB: aggregateGames(match).gamesB, winner, pointsA: rules.points.retiredWin, pointsB: rules.points.retiredLoss }
-      : { setsA: 0, setsB: 1, gamesA: aggregateGames(match).gamesA, gamesB: aggregateGames(match).gamesB, winner, pointsA: rules.points.retiredLoss, pointsB: rules.points.retiredWin };
+      ? { setsA: set, setsB: 0, gamesA: agg.gamesA, gamesB: agg.gamesB, winner, pointsA: rules.points.retiredWin, pointsB: rules.points.retiredLoss }
+      : { setsA: 0, setsB: set, gamesA: agg.gamesA, gamesB: agg.gamesB, winner, pointsA: rules.points.retiredLoss, pointsB: rules.points.retiredWin };
+  }
+
+  if (mode === 'TIME') {
+    const winner = byId();
+    return { setsA: 0, setsB: 0, gamesA: 0, gamesB: 0, winner, ...simplePoints(winner, rules) };
+  }
+
+  if (mode === 'GAMES_TARGET') {
+    const { gamesA, gamesB } = aggregateGames(match);
+    let winner: 'A' | 'B' | 'DRAW' = 'DRAW';
+    if (gamesA > gamesB) winner = 'A';
+    else if (gamesB > gamesA) winner = 'B';
+    else winner = byId();
+    return { setsA: 0, setsB: 0, gamesA, gamesB, winner, ...simplePoints(winner, rules) };
   }
 
   const setsA = match.sets.filter((set) => set.gamesA > set.gamesB).length;
@@ -172,6 +194,12 @@ function summariseMatch(match: Match, rules: TournamentRules): {
   const bonusB = calculateBonus(setsB, gamesB, rules);
 
   return { setsA, setsB, gamesA, gamesB, winner, pointsA: base.pointsA + bonusA, pointsB: base.pointsB + bonusB };
+}
+
+function simplePoints(winner: 'A' | 'B' | 'DRAW', rules: TournamentRules): { pointsA: number; pointsB: number } {
+  if (winner === 'A') return { pointsA: rules.points.win, pointsB: rules.points.loss };
+  if (winner === 'B') return { pointsA: rules.points.loss, pointsB: rules.points.win };
+  return { pointsA: rules.points.draw, pointsB: rules.points.draw };
 }
 
 function aggregateGames(match: Match): { gamesA: number; gamesB: number } {

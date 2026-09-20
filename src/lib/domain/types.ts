@@ -1,5 +1,7 @@
 export type ParticipantType = 'TEAM';
 
+export type ScoringMode = 'SETS' | 'GAMES_TARGET' | 'TIME';
+
 export type MatchStatus =
   | 'SCHEDULED'
   | 'IN_PROGRESS'
@@ -41,6 +43,7 @@ export type ScoreRuleSet = {
 };
 
 export type TournamentRules = {
+  scoringMode: ScoringMode;
   setsPerMatch: number;
   gamesPerSet: number;
   allowDraws: boolean;
@@ -159,6 +162,7 @@ export type MVPStandingRow = {
 };
 
 export const defaultTournamentRules: TournamentRules = {
+  scoringMode: 'SETS',
   setsPerMatch: 1,
   gamesPerSet: 6,
   allowDraws: false,

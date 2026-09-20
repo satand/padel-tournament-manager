@@ -21,3 +21,19 @@ describe('validazioni risultati e calendario', () => {
     expect(validateSchedulingConflicts(matches)).toHaveLength(2);
   });
 });
+
+describe('scoring modes', () => {
+  it('TIME: richiede la coppia vincente e ignora i set', () => {
+    const rules = { ...defaultTournamentRules, scoringMode: 'TIME' as const };
+    const noWinner: Match = { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [] };
+    expect(validateMatchResult(noWinner, rules).some((i) => i.field === 'winnerId')).toBe(true);
+    const withWinner: Match = { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [], winnerId: 'a' };
+    expect(validateMatchResult(withWinner, rules)).toEqual([]);
+  });
+
+  it('GAMES_TARGET: accetta un tally in game non compatibile con un set a 6', () => {
+    const rules = { ...defaultTournamentRules, scoringMode: 'GAMES_TARGET' as const };
+    const match: Match = { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 10, gamesB: 7 }] };
+    expect(validateMatchResult(match, rules)).toEqual([]);
+  });
+});
