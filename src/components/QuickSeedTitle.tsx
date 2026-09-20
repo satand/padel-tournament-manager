@@ -137,18 +137,18 @@ export function QuickSeedTitle() {
             <h2 style={{ marginTop: 0 }}>Genera torneo di prova</h2>
             <p style={{ color: 'var(--muted)', fontSize: 13 }}>Crea un torneo in bozza già configurato con un numero di coppie generate automaticamente. Potrai eliminarlo dalla lista.</p>
 
-            <div className="form-grid" style={{ marginTop: 8 }}>
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
+            <div className="form-grid" style={{ marginTop: 8, gridTemplateColumns: 'minmax(0, 1fr) 132px' }}>
+              <div className="field" style={{ gridColumn: '1 / -1', minWidth: 0 }}>
                 <label>Nome torneo</label>
                 <input value={name} onChange={(e) => setName(e.target.value)} />
               </div>
-              <div className="field">
+              <div className="field" style={{ minWidth: 0 }}>
                 <label>Data inizio</label>
-                <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+                <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} style={{ minWidth: 0 }} />
               </div>
-              <div className="field">
-                <label>Numero di coppie</label>
-                <input type="number" min={2} max={64} value={count} onChange={(e) => setCount(e.target.value)} />
+              <div className="field" style={{ minWidth: 0 }}>
+                <label>N. coppie</label>
+                <input type="number" min={2} max={64} value={count} onChange={(e) => setCount(e.target.value)} style={{ minWidth: 0 }} />
               </div>
             </div>
 
