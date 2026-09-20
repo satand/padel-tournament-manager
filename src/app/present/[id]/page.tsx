@@ -18,6 +18,7 @@ async function loadPresentData(id: string): Promise<TournamentContext | null> {
       name: demoTournament.name,
       format: demoTournament.format,
       status: 'RUNNING',
+      startsAt: '2026-07-04T09:00:00.000Z',
       rules: demoTournament.rules,
       settings: null,
       participants: demoTournament.participants,

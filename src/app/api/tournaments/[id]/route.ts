@@ -21,6 +21,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!tournament.settings) return NextResponse.json({ error: 'Impostazioni non trovate.' }, { status: 404 });
 
   const data: Record<string, unknown> = {};
+  let startsAt: Date | null | undefined; // undefined = campo non fornito
 
   for (const key of CALENDAR_FIELDS) {
     const value = asInt(body[key]);
@@ -48,12 +49,28 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (typeof body[key] === 'boolean') data[key] = body[key];
     }
     if (Array.isArray(body.tierThresholds)) data.tierThresholds = body.tierThresholds.filter((t: unknown) => typeof t === 'number');
+
+    if ('startsAt' in body) {
+      const raw = body.startsAt;
+      startsAt = typeof raw === 'string' && !Number.isNaN(Date.parse(raw)) ? new Date(raw) : null;
+    }
   }
 
-  if (Object.keys(data).length === 0) return NextResponse.json({ ok: true, updated: 0 });
+  if (Object.keys(data).length === 0 && startsAt === undefined) {
+    return NextResponse.json({ ok: true, updated: 0 });
+  }
 
-  await prisma.tournamentSettings.update({ where: { tournamentId: id }, data });
-  return NextResponse.json({ ok: true, updated: Object.keys(data).length });
+  let updated = 0;
+  if (Object.keys(data).length > 0) {
+    await prisma.tournamentSettings.update({ where: { tournamentId: id }, data });
+    updated += Object.keys(data).length;
+  }
+  if (startsAt !== undefined) {
+    await prisma.tournament.update({ where: { id }, data: { startsAt } });
+    updated += 1;
+  }
+
+  return NextResponse.json({ ok: true, updated });
 }
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {

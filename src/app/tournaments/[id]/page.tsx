@@ -18,6 +18,7 @@ async function loadContext(id: string): Promise<(TournamentContext & { isDemo: b
       name: demoTournament.name,
       format: demoTournament.format,
       status: 'RUNNING',
+      startsAt: '2026-07-04T09:00:00.000Z',
       rules: demoTournament.rules,
       settings: null,
       participants: demoTournament.participants,
@@ -107,6 +108,7 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
         <TournamentActions
           tournamentId={data.id}
           status={data.status}
+          startsAt={data.startsAt}
           participants={participantsForAdmin}
           matchesCount={data.matches.length}
           groups={data.groups}

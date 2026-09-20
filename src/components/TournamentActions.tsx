@@ -10,6 +10,7 @@ type GroupRow = { id: string; name: string };
 type Props = {
   tournamentId: string;
   status: string;
+  startsAt: string | null;
   participants: ParticipantRow[];
   matchesCount: number;
   groups: GroupRow[];
@@ -22,7 +23,15 @@ type Props = {
 type CoupleForm = { participantId: string | null; teamName: string; player1: string; player2: string; level: string };
 const emptyCouple: CoupleForm = { participantId: null, teamName: '', player1: '', player2: '', level: '' };
 
-export function TournamentActions({ tournamentId, status, participants, matchesCount, groups, settings, finalsCount, groupMatchesTotal, groupMatchesDone }: Props) {
+function toInputDate(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function TournamentActions({ tournamentId, status, startsAt, participants, matchesCount, groups, settings, finalsCount, groupMatchesTotal, groupMatchesDone }: Props) {
   const router = useRouter();
   const [couple, setCouple] = useState<CoupleForm>(emptyCouple);
   const [busy, setBusy] = useState(false);
@@ -40,6 +49,8 @@ export function TournamentActions({ tournamentId, status, participants, matchesC
     maxMatchesPerPlayerDay: settings?.maxMatchesPerPlayerDay ?? 6
   });
   const [savingCal, setSavingCal] = useState(false);
+  const [startDate, setStartDate] = useState(toInputDate(startsAt));
+  const [savingDate, setSavingDate] = useState(false);
 
   const thresholds = Array.isArray(settings?.tierThresholds) ? (settings!.tierThresholds as unknown[]) : [];
   const [savingStruct, setSavingStruct] = useState(false);
@@ -153,6 +164,25 @@ export function TournamentActions({ tournamentId, status, participants, matchesC
     }
   }
 
+  async function saveDate() {
+    setSavingDate(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/tournaments/${tournamentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startsAt: startDate ? new Date(startDate).toISOString() : null })
+      });
+      if (!res.ok) throw new Error('Impossibile salvare la data di inizio.');
+      setMessageLater('success', 'Data di inizio salvata.');
+      router.refresh();
+    } catch (err) {
+      setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
+    } finally {
+      setSavingDate(false);
+    }
+  }
+
   async function saveStruct() {
     setSavingStruct(true);
     setMessage(null);
@@ -231,6 +261,27 @@ export function TournamentActions({ tournamentId, status, participants, matchesC
           {message.text}
         </div>
       )}
+
+      <div style={{ marginBottom: 16 }}>
+        <h3>Dati torneo</h3>
+        <div className="form-grid">
+          <div className="field">
+            <label>Data inizio</label>
+            {status === 'DRAFT' ? (
+              <input type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            ) : (
+              <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 10, background: '#f8fafc', fontSize: 14 }}>
+                {startsAt ? new Date(startsAt).toLocaleString('it-IT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Non impostata'}
+              </div>
+            )}
+          </div>
+        </div>
+        {status === 'DRAFT' ? (
+          <div className="actions"><button className="button secondary" disabled={savingDate} onClick={saveDate}>{savingDate ? 'Salvataggio...' : 'Salva data'}</button></div>
+        ) : (
+          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>Modificabile solo quando il torneo è in bozza.</p>
+        )}
+      </div>
 
       <div className="grid grid-2">
         <div>

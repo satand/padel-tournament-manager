@@ -37,6 +37,7 @@ export type TournamentContext = {
   name: string;
   format: string;
   status: string;
+  startsAt: string | null;
   rules: TournamentRules;
   settings: TournamentWithIncludes['settings'];
   participants: Participant[];
@@ -118,6 +119,7 @@ export function toDomainContext(tournament: TournamentWithIncludes): TournamentC
     name: tournament.name,
     format: tournament.format,
     status: tournament.status,
+    startsAt: tournament.startsAt?.toISOString() ?? null,
     rules: buildRules(tournament.settings),
     settings: tournament.settings,
     participants,
