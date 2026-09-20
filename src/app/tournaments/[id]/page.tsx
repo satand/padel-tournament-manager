@@ -80,6 +80,11 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
               {data.isDemo && <span className="badge" style={{ background: '#fef3c7', color: '#92400e' }}>DEMO</span>}
             </div>
             <h1>{data.name}</h1>
+            {data.startsAt && (
+              <p style={{ color: 'var(--muted)', fontSize: 14, margin: '2px 0 0' }}>
+                Inizio: {new Date(data.startsAt).toLocaleString('it-IT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
           </div>
           {!data.isDemo && <DeleteTournamentButton tournamentId={data.id} tournamentName={data.name} redirectTo="/tournaments" />}
         </div>
