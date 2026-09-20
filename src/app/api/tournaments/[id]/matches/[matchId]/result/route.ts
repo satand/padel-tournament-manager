@@ -3,6 +3,7 @@ import { defaultTournamentRules } from '@/lib/domain/types';
 import { validateMatchResult, resultPayloadSchema } from '@/lib/domain/validators';
 import { prisma } from '@/lib/server/db';
 import { writeAuditLog } from '@/lib/server/audit';
+import { resolveBracket } from '@/lib/server/bracket';
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string; matchId: string }> }) {
   const { id, matchId } = await context.params;
@@ -71,6 +72,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       }
     });
   }
+
+  // Propaga il vincente (o il perdente) nei tabelloni della fase finale.
+  await resolveBracket(id);
 
   await writeAuditLog({
     tournamentId: id,

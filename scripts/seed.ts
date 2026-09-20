@@ -92,8 +92,8 @@ async function main() {
     const createdMatch = await prisma.match.create({
       data: {
         tournamentId: tournament.id,
-        participantAId: participantIdMap.get(match.participantAId)!,
-        participantBId: participantIdMap.get(match.participantBId)!,
+        participantAId: participantIdMap.get(match.participantAId ?? '')!,
+        participantBId: participantIdMap.get(match.participantBId ?? '')!,
         status: match.status,
         phase: match.phase ?? 'group',
         roundIndex: match.roundIndex ?? 1,

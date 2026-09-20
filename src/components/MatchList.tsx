@@ -29,8 +29,8 @@ export function MatchList({ matches, participants, players = [], courtNames = {}
           <MatchCard
             key={match.id}
             match={match}
-            nameA={name.get(match.participantAId) ?? match.participantAId}
-            nameB={name.get(match.participantBId) ?? match.participantBId}
+            nameA={name.get(match.participantAId ?? '') ?? match.participantAId ?? 'In attesa'}
+            nameB={name.get(match.participantBId ?? '') ?? match.participantBId ?? 'In attesa'}
             courtName={match.courtId ? (courtNames[match.courtId] ?? match.courtId) : undefined}
             editable={editable && ['SCHEDULED', 'IN_PROGRESS'].includes(match.status)}
             tournamentId={tournamentId}
@@ -62,6 +62,7 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
   const router = useRouter();
   const isCompleted = ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(match.status);
   const canEdit = editable || (!!tournamentId && !!rules && isCompleted);
+  const hasBoth = Boolean(match.participantAId && match.participantBId);
   const [open, setOpen] = useState(false);
   const existingSet = match.sets[0];
   const [gamesA, setGamesA] = useState(existingSet?.gamesA ?? 0);
@@ -129,7 +130,7 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
         <div>
           <strong>{nameA}</strong> vs <strong>{nameB}</strong>
         </div>
-        {canEdit && !open && !isCompleted && (
+        {canEdit && hasBoth && !open && !isCompleted && (
           <button
             className="button"
             style={{ padding: '6px 12px', fontSize: 13 }}
@@ -158,6 +159,9 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
       <div className="score">
         {match.sets.length ? match.sets.map((set) => `${set.gamesA}-${set.gamesB}`).join(' ') : match.status}
       </div>
+      {!hasBoth && !isCompleted && (
+        <div style={{ fontSize: 13, color: 'var(--muted)' }}>In attesa di definire gli avversari</div>
+      )}
       {matchMvp.length > 0 && (
         <div style={{ fontSize: 13, color: 'var(--accent)' }}>
           {matchMvp.map((v, i) => (

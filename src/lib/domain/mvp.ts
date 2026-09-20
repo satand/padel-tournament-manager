@@ -80,7 +80,8 @@ function countMatchesPlayedByPlayer(participants: Participant[], matches: Match[
   for (const [playerId, participantIds] of playerToParticipants.entries()) {
     played[playerId] = matches.filter(
       (match) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(match.status) &&
-        (participantIds.includes(match.participantAId) || participantIds.includes(match.participantBId))
+        ((match.participantAId != null && participantIds.includes(match.participantAId)) ||
+         (match.participantBId != null && participantIds.includes(match.participantBId)))
     ).length;
   }
   return played;

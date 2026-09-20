@@ -87,6 +87,7 @@ export function toDomainContext(tournament: TournamentWithIncludes): TournamentC
     phase: m.phase,
     phaseWeight: m.phaseWeight,
     roundIndex: m.roundIndex,
+    bracket: m.bracket ?? null,
     winnerId: m.winnerId ?? undefined,
     note: m.note ?? undefined
   }));

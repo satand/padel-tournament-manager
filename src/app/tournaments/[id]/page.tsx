@@ -49,9 +49,14 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
   const overallRanking = calculateRanking(data.participants, data.matches, data.rules, avgMvp);
   const mvp = calculateMVPStandings(data.players, data.participants, data.matches, data.mvpVotes, defaultMVPSettings);
 
-  const scheduledMatches = data.matches.filter((m) => ['SCHEDULED', 'IN_PROGRESS'].includes(m.status));
-  const completedMatches = data.matches.filter((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
-  const otherMatches = data.matches.filter((m) => ['CANCELLED', 'POSTPONED'].includes(m.status));
+  const isFinal = (m: (typeof data.matches)[number]) => !!m.phase && m.phase !== 'group';
+  const groupOnly = data.matches.filter((m) => !isFinal(m));
+  const finalMatches = data.matches
+    .filter(isFinal)
+    .sort((a, b) => String(a.bracket ?? '').localeCompare(String(b.bracket ?? '')) || (a.roundIndex ?? 0) - (b.roundIndex ?? 0));
+  const scheduledMatches = groupOnly.filter((m) => ['SCHEDULED', 'IN_PROGRESS'].includes(m.status));
+  const completedMatches = groupOnly.filter((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
+  const otherMatches = groupOnly.filter((m) => ['CANCELLED', 'POSTPONED'].includes(m.status));
   const courtNames: Record<string, string> = Object.fromEntries(data.courts.map((c) => [c.id, c.name]));
 
   const participantsForAdmin = data.participants.map((p) => ({
@@ -63,6 +68,7 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
 
   const playersForMatch = data.players.map((p) => ({ id: p.id, displayName: p.displayName ?? `${p.firstName} ${p.lastName}` }));
   const showGroups = data.groups.length > 0;
+  const groupMatchesDone = groupOnly.filter((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status)).length;
 
   return (
     <main className="grid">
@@ -98,6 +104,9 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
           matchesCount={data.matches.length}
           groups={data.groups}
           settings={data.settings}
+          finalsCount={finalMatches.length}
+          groupMatchesTotal={groupOnly.length}
+          groupMatchesDone={groupMatchesDone}
         />
       )}
 
@@ -131,6 +140,12 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
         <section className="panel">
           <h2>Risultati ({completedMatches.length})</h2>
           <MatchList matches={completedMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} mvpVotes={data.mvpVotes.map((v) => ({ matchId: v.matchId, playerId: v.playerId, rating: v.rating, penalty: v.penalty }))} tournamentId={data.isDemo ? undefined : data.id} rules={data.isDemo ? undefined : data.rules} />
+        </section>
+      )}
+      {finalMatches.length > 0 && (
+        <section className="panel">
+          <h2>Fase finale ({finalMatches.length})</h2>
+          <MatchList matches={finalMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} editable={!data.isDemo} tournamentId={data.id} rules={data.rules} />
         </section>
       )}
       {otherMatches.length > 0 && (

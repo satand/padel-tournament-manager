@@ -33,7 +33,7 @@ export function calculateMiniLeague(
   const tiedSet = new Set(tiedParticipantIds);
   const miniParticipants = participants.filter((p) => tiedSet.has(p.id));
   const miniMatches = matches.filter(
-    (m) => tiedSet.has(m.participantAId) && tiedSet.has(m.participantBId) && isScorableMatch(m)
+    (m) => m.participantAId != null && m.participantBId != null && tiedSet.has(m.participantAId) && tiedSet.has(m.participantBId) && isScorableMatch(m)
   );
   return calculateRanking(miniParticipants, miniMatches, { ...rules, tieBreakers: ['points', 'setDiff', 'gameDiff', 'gamesWon', 'gamesLostAsc', 'manualOrder'] });
 }
@@ -70,6 +70,7 @@ function isScorableMatch(match: Match): boolean {
 }
 
 function applyMatchToStats(stats: Record<string, InternalStats>, match: Match, rules: TournamentRules): void {
+  if (!match.participantAId || !match.participantBId) return;
   const a = stats[match.participantAId];
   const b = stats[match.participantBId];
   if (!a || !b) return;

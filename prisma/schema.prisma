@@ -293,10 +293,10 @@ model Match {
   tournament     Tournament             @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   groupId        String?
   group          TournamentGroup?       @relation(fields: [groupId], references: [id])
-  participantAId String
-  participantA   TournamentParticipant  @relation("MatchParticipantA", fields: [participantAId], references: [id])
-  participantBId String
-  participantB   TournamentParticipant  @relation("MatchParticipantB", fields: [participantBId], references: [id])
+  participantAId String?
+  participantA   TournamentParticipant? @relation("MatchParticipantA", fields: [participantAId], references: [id])
+  participantBId String?
+  participantB   TournamentParticipant? @relation("MatchParticipantB", fields: [participantBId], references: [id])
   winnerId       String?
   winner         TournamentParticipant? @relation("MatchWinner", fields: [winnerId], references: [id])
   courtId        String?

@@ -84,8 +84,8 @@ export type MatchSetScore = {
 
 export type Match = {
   id: string;
-  participantAId: string;
-  participantBId: string;
+  participantAId: string | null;
+  participantBId: string | null;
   status: MatchStatus;
   sets: MatchSetScore[];
   scheduledAt?: string;
@@ -94,6 +94,7 @@ export type Match = {
   phase?: string;
   phaseWeight?: number;
   roundIndex?: number;
+  bracket?: 'GOLD' | 'SILVER' | null;
   winnerId?: string;
   note?: string;
   disciplinaryPenalties?: Record<string, number>;

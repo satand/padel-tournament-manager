@@ -1,4 +1,4 @@
-import type { Match, Participant } from './types';
+import type { Match, MatchStatus, Participant } from './types';
 
 export type Court = { id: string; name: string; order: number };
 export type ScheduleInput = {
@@ -111,7 +111,7 @@ export function assignSchedule(matches: Match[], input: ScheduleInput): Match[] 
     let attempts = 0;
     while (attempts < 10000) {
       const court = sortedCourts[courtIndex % sortedCourts.length];
-      const participants = [match.participantAId, match.participantBId];
+      const participants = [match.participantAId, match.participantBId].filter((id): id is string => id != null);
       const hasRest = participants.every((id) => {
         const last = playerLastTime.get(id);
         if (!last) return true;
@@ -170,4 +170,88 @@ function minutesBetween(a: Date, b: Date): number {
 
 function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60000);
+}
+
+export type FinalSlot =
+  | { kind: 'participant'; participantId: string }
+  | { kind: 'bye' }
+  | { kind: 'winner'; matchKey: string }
+  | { kind: 'loser'; matchKey: string };
+
+export type FinalBracketMatch = {
+  key: string;
+  roundIndex: number;
+  phase: string;
+  phaseWeight: number;
+  bracket: 'GOLD' | 'SILVER' | null;
+  a: FinalSlot;
+  b: FinalSlot;
+  status: MatchStatus;
+  winnerId: string | null;
+};
+
+// Costruisce un tabellone a eliminazione con riferimenti genitore (per la propagazione
+// dei vincenti) invece dei segnaposto testuali. Gli slot liberi restano "da definire".
+export function buildFinalBracket(entrants: Participant[], bracket: 'GOLD' | 'SILVER' | null = null): FinalBracketMatch[] {
+  const players = entrants.filter((e) => e && e.id);
+  const size = nextPowerOfTwo(Math.max(2, players.length));
+  const byes = size - players.length;
+  const slots: (Participant | null)[] = [...players, ...Array.from({ length: byes }, () => null)];
+  const pairs: [Participant | null, Participant | null][] = [];
+  for (let i = 0; i < size / 2; i += 1) pairs.push([slots[i], slots[size - 1 - i]]);
+
+  const matches: FinalBracketMatch[] = [];
+  const roundKeys: string[][] = [];
+
+  const r1keys: string[] = [];
+  pairs.forEach(([a, b], i) => {
+    const key = `b${bracket ?? 'x'}-r1-${i + 1}`;
+    r1keys.push(key);
+    const aBye = a == null;
+    const bBye = b == null;
+    let status: MatchStatus = 'SCHEDULED';
+    let winnerId: string | null = null;
+    if (aBye && bBye) status = 'CANCELLED';
+    else if (aBye) { status = 'WALKOVER'; winnerId = (b as Participant).id; }
+    else if (bBye) { status = 'WALKOVER'; winnerId = (a as Participant).id; }
+    const label = roundLabel(size, 1);
+    matches.push({
+      key,
+      roundIndex: 1,
+      phase: label,
+      phaseWeight: phaseWeight(label),
+      bracket,
+      a: aBye ? { kind: 'bye' } : { kind: 'participant', participantId: (a as Participant).id },
+      b: bBye ? { kind: 'bye' } : { kind: 'participant', participantId: (b as Participant).id },
+      status,
+      winnerId
+    });
+  });
+  roundKeys.push(r1keys);
+
+  let round = 2;
+  while (roundKeys[roundKeys.length - 1].length > 1) {
+    const prev = roundKeys[roundKeys.length - 1];
+    const keys: string[] = [];
+    const label = roundLabel(size, round);
+    for (let i = 0; i < prev.length / 2; i += 1) {
+      const key = `b${bracket ?? 'x'}-r${round}-${i + 1}`;
+      keys.push(key);
+      matches.push({
+        key,
+        roundIndex: round,
+        phase: label,
+        phaseWeight: phaseWeight(label),
+        bracket,
+        a: { kind: 'winner', matchKey: prev[i * 2] },
+        b: { kind: 'winner', matchKey: prev[i * 2 + 1] },
+        status: 'SCHEDULED',
+        winnerId: null
+      });
+    }
+    roundKeys.push(keys);
+    round += 1;
+  }
+
+  return matches;
 }

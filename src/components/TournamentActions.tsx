@@ -14,16 +14,21 @@ type Props = {
   matchesCount: number;
   groups: GroupRow[];
   settings: TournamentSettings | null;
+  finalsCount: number;
+  groupMatchesTotal: number;
+  groupMatchesDone: number;
 };
 
 type CoupleForm = { participantId: string | null; teamName: string; player1: string; player2: string; level: string };
 const emptyCouple: CoupleForm = { participantId: null, teamName: '', player1: '', player2: '', level: '' };
 
-export function TournamentActions({ tournamentId, status, participants, matchesCount, groups, settings }: Props) {
+export function TournamentActions({ tournamentId, status, participants, matchesCount, groups, settings, finalsCount, groupMatchesTotal, groupMatchesDone }: Props) {
   const router = useRouter();
   const [couple, setCouple] = useState<CoupleForm>(emptyCouple);
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [generatingFinals, setGeneratingFinals] = useState(false);
+  const [confirmRegenFinals, setConfirmRegenFinals] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -144,6 +149,23 @@ export function TournamentActions({ tournamentId, status, participants, matchesC
     }
   }
 
+  async function handleGenerateFinals(regenerate = false) {
+    setGeneratingFinals(true);
+    setMessage(null);
+    setConfirmRegenFinals(false);
+    try {
+      const res = await fetch(`/api/tournaments/${tournamentId}/generate-finals`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ regenerate }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Errore nella generazione della fase finale.');
+      setMessageLater('success', `Fase finale generata: ${data.matchesCreated} partite.`);
+      router.refresh();
+    } catch (err) {
+      setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
+    } finally {
+      setGeneratingFinals(false);
+    }
+  }
+
   const inputStyle = { width: '100%', border: '1px solid var(--border)', borderRadius: 12, padding: 10, fontFamily: 'inherit', fontSize: 14 } as const;
   const editing = Boolean(couple.participantId);
 
@@ -245,6 +267,31 @@ export function TournamentActions({ tournamentId, status, participants, matchesC
         </div>
         {participants.length < 2 && <p style={{ color: 'var(--warning)', fontSize: 13, marginTop: 8 }}>Servono almeno 2 coppie.</p>}
         {status === 'DRAFT' && matchesCount === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>Suggerimento: aggiungi le coppie con il livello, poi genera i gironi.</p>}
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <h3>Fase finale</h3>
+        {groupMatchesTotal === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: 14 }}>Genera prima il calendario dei gironi.</p>
+        ) : groupMatchesDone < groupMatchesTotal ? (
+          <p style={{ color: 'var(--warning)', fontSize: 14 }}>Completa le partite dei gironi ({groupMatchesDone}/{groupMatchesTotal} concluse) per generare la fase finale.</p>
+        ) : finalsCount > 0 && !confirmRegenFinals ? (
+          <div className="actions">
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginRight: 8 }}>Fase finale già generata ({finalsCount} partite).</p>
+            <button className="button secondary" disabled={generatingFinals} onClick={() => setConfirmRegenFinals(true)}>Rigenera fase finale</button>
+          </div>
+        ) : finalsCount > 0 && confirmRegenFinals ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca' }}>
+            <span style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 700 }}>Le partite della fase finale e i relativi risultati saranno eliminati. Continuare?</span>
+            <button className="button" disabled={generatingFinals} style={{ background: 'var(--danger)', padding: '6px 14px', fontSize: 13 }} onClick={() => handleGenerateFinals(true)}>{generatingFinals ? 'Rigenerazione...' : 'Sì, rigenera'}</button>
+            <button className="button secondary" style={{ padding: '6px 14px', fontSize: 13 }} onClick={() => setConfirmRegenFinals(false)}>Annulla</button>
+          </span>
+        ) : (
+          <div className="actions">
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginRight: 8 }}>Gironi completati: puoi generare i tabelloni.</p>
+            <button className="button" disabled={generatingFinals} onClick={() => handleGenerateFinals(false)}>{generatingFinals ? 'Generazione...' : 'Genera fase finale'}</button>
+          </div>
+        )}
       </div>
     </section>
   );
