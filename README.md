@@ -82,16 +82,17 @@ flowchart TD
 
 ## Funzionalità incluse
 
-- Wizard di creazione torneo guidata.
-- Lista tornei e dashboard organizzatore.
-- Pagina pubblica consultabile da tutti.
-- Gestione partecipanti, calendario e risultati.
-- Classifica automatica con scontri diretti e avulsa.
-- Classifica MVP con voti, pesi, bonus e penalità.
-- Scheduling: gironi round robin e fase finale a eliminazione diretta.
-- Audit log delle modifiche principali.
-- Interfaccia responsive per desktop, tablet e smartphone.
-- Test automatici sul motore di dominio.
+- **Un solo operatore, senza login**: tutto locale, pensato per gestire il torneo la settimana prima.
+- **Solo coppie** (Team): iscrizione con i due giocatori + livello numerico per coppia.
+- Wizard di creazione (solo tipo torneo e config); le coppie si inseriscono in amministrazione (CRUD con modifica).
+- **Gironi bilanciati per livello** (fasce + serpentina) e **classifica per girone**.
+- **Fase finale** a eliminazione diretta con tabelloni configurabili **Gold/Silver** e **propagazione automatica dei vincenti**.
+- **Modalità punteggio**: set, "a target" (primo a N game) o "a tempo".
+- **MVP "fino a una fase"**: il calcolo considera solo le partite fino alla fase scelta (es. fino alle semifinali).
+- **Schermo di proiezione** `/present/[id]`: campione, tabellone, classifiche e MVP, adatti a un monitor.
+- **Export CSV**: calendario, classifiche e MVP.
+- Lista tornei, dashboard organizzatore e pagina pubblica di sola lettura.
+- Audit log delle modifiche principali; interfaccia responsive; test automatici sul motore di dominio.
 
 ## Requisiti
 

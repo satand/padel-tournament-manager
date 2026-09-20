@@ -25,7 +25,7 @@ async function loadPresentData(id: string): Promise<TournamentContext | null> {
       matches: demoTournament.matches,
       mvpVotes: demoTournament.mvpVotes,
       courts: demoTournament.courts,
-      groups: []
+      groups: demoTournament.groups
     };
   }
   const tournament = await prisma.tournament.findFirst({

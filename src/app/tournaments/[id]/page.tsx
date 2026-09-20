@@ -25,7 +25,7 @@ async function loadContext(id: string): Promise<(TournamentContext & { isDemo: b
       matches: demoTournament.matches,
       mvpVotes: demoTournament.mvpVotes,
       courts: demoTournament.courts,
-      groups: [],
+      groups: demoTournament.groups,
       isDemo: true
     };
   }
@@ -87,6 +87,14 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
           <Link className="button secondary" href={`/public/${data.isDemo ? 'demo-tournament' : data.id}`} target="_blank">Apri pagina pubblica</Link>
           {!data.isDemo && <Link className="button secondary" href={`/present/${data.id}`} target="_blank">Schermo di proiezione</Link>}
         </div>
+        {!data.isDemo && (
+          <div className="actions" style={{ marginTop: 6 }}>
+            <span style={{ color: 'var(--muted)', fontSize: 13, alignSelf: 'center' }}>Esporta CSV:</span>
+            <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=calendar`} download>Calendario</a>
+            <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=${data.groups.length > 0 ? 'groups' : 'ranking'}`} download>Classifiche</a>
+            <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=mvp`} download>MVP</a>
+          </div>
+        )}
         <div className="grid grid-4">
           <div className="stat"><div className="stat-label">Coppie</div><div className="stat-value">{data.participants.length}</div></div>
           <div className="stat"><div className="stat-label">Partite</div><div className="stat-value">{data.matches.length}</div></div>

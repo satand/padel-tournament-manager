@@ -22,7 +22,7 @@ async function loadPublicData(id: string): Promise<(TournamentContext & { isDemo
       matches: demoTournament.matches,
       mvpVotes: demoTournament.mvpVotes,
       courts: demoTournament.courts,
-      groups: [],
+      groups: demoTournament.groups,
       isDemo: true
     };
   }

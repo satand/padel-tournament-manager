@@ -6,6 +6,10 @@ function asInt(value: unknown): number | undefined {
   return typeof n === 'number' && Number.isFinite(n) ? Math.trunc(n) : undefined;
 }
 
+function pickEnum<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : undefined;
+}
+
 const CALENDAR_FIELDS = ['courtsCount', 'matchDurationMinutes', 'minRestMinutes', 'maxMatchesPerPlayerDay'] as const;
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -24,10 +28,24 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 
   if (tournament.status === 'DRAFT') {
-    const structuralInt = ['setsPerMatch', 'gamesPerSet', 'targetGames', 'groupCount', 'qualifiedPerGroup'];
+    const structuralInt = ['gamesPerSet', 'targetGames', 'groupCount', 'qualifiedPerGroup'];
     for (const key of structuralInt) {
       const value = asInt(body[key]);
       if (value != null) data[key] = value;
+    }
+    const maxSets = asInt(body.maxSets ?? body.setsPerMatch);
+    if (maxSets != null) {
+      data.maxSets = maxSets;
+      data.setsPerMatch = maxSets;
+    }
+    const scoringMode = pickEnum(body.scoringMode, ['SETS', 'GAMES_TARGET', 'TIME'] as const);
+    if (scoringMode) data.scoringMode = scoringMode;
+    const finalStartRound = pickEnum(body.finalStartRound, ['R16', 'R8', 'QF', 'SF', 'FINAL'] as const);
+    if (finalStartRound) data.finalStartRound = finalStartRound;
+    const mvpThroughPhase = pickEnum(body.mvpThroughPhase, ['GROUP', 'R16', 'R8', 'QF', 'SF', 'FINAL'] as const);
+    if (mvpThroughPhase) data.mvpThroughPhase = mvpThroughPhase;
+    for (const key of ['splitGoldSilver', 'mvpEnabled', 'allowDraws'] as const) {
+      if (typeof body[key] === 'boolean') data[key] = body[key];
     }
     if (Array.isArray(body.tierThresholds)) data.tierThresholds = body.tierThresholds.filter((t: unknown) => typeof t === 'number');
   }

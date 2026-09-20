@@ -41,6 +41,27 @@ export function TournamentActions({ tournamentId, status, participants, matchesC
   });
   const [savingCal, setSavingCal] = useState(false);
 
+  const thresholds = Array.isArray(settings?.tierThresholds) ? (settings!.tierThresholds as unknown[]) : [];
+  const [savingStruct, setSavingStruct] = useState(false);
+  const [struct, setStruct] = useState<{
+    scoringMode: string; maxSets: number; gamesPerSet: number; targetGames: number;
+    groupCount: number; qualifiedPerGroup: number; finalStartRound: string;
+    splitGoldSilver: boolean; mvpEnabled: boolean; mvpThroughPhase: string; tier1: string; tier2: string;
+  }>({
+    scoringMode: settings?.scoringMode ?? 'SETS',
+    maxSets: settings?.maxSets ?? 1,
+    gamesPerSet: settings?.gamesPerSet ?? 6,
+    targetGames: settings?.targetGames ?? 21,
+    groupCount: settings?.groupCount ?? 2,
+    qualifiedPerGroup: settings?.qualifiedPerGroup ?? 2,
+    finalStartRound: settings?.finalStartRound ?? 'SF',
+    splitGoldSilver: settings?.splitGoldSilver ?? true,
+    mvpEnabled: settings?.mvpEnabled ?? true,
+    mvpThroughPhase: settings?.mvpThroughPhase ?? 'FINAL',
+    tier1: thresholds[0] != null ? String(thresholds[0]) : '4.5',
+    tier2: thresholds[1] != null ? String(thresholds[1]) : '3.5'
+  });
+
   function setMessageLater(type: 'success' | 'error', text: string) {
     setMessage({ type, text });
   }
@@ -129,6 +150,38 @@ export function TournamentActions({ tournamentId, status, participants, matchesC
       setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
     } finally {
       setSavingCal(false);
+    }
+  }
+
+  async function saveStruct() {
+    setSavingStruct(true);
+    setMessage(null);
+    try {
+      const tierThresholds = [Number(struct.tier1), Number(struct.tier2)].filter((n) => Number.isFinite(n) && n > 0);
+      const res = await fetch(`/api/tournaments/${tournamentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scoringMode: struct.scoringMode,
+          maxSets: struct.maxSets,
+          gamesPerSet: struct.gamesPerSet,
+          targetGames: struct.targetGames,
+          groupCount: struct.groupCount,
+          qualifiedPerGroup: struct.qualifiedPerGroup,
+          finalStartRound: struct.finalStartRound,
+          splitGoldSilver: struct.splitGoldSilver,
+          mvpEnabled: struct.mvpEnabled,
+          mvpThroughPhase: struct.mvpThroughPhase,
+          tierThresholds
+        })
+      });
+      if (!res.ok) throw new Error('Impossibile salvare le impostazioni strutturali.');
+      setMessageLater('success', 'Impostazioni strutturali salvate.');
+      router.refresh();
+    } catch (err) {
+      setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
+    } finally {
+      setSavingStruct(false);
     }
   }
 
@@ -231,6 +284,58 @@ export function TournamentActions({ tournamentId, status, participants, matchesC
             ))}
           </div>
         </div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <h3>Impostazioni strutturali</h3>
+        {status !== 'DRAFT' ? (
+          <p style={{ color: 'var(--muted)', fontSize: 14 }}>Bloccate: il calendario è già stato generato. Crea un nuovo torneo per cambiare queste opzioni.</p>
+        ) : (
+          <>
+            <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 8px' }}>Modificabili finché il torneo è in bozza (prima di generare il calendario).</p>
+            <div className="form-grid">
+              <div className="field"><label>Modalità punteggio</label>
+                <select value={struct.scoringMode} onChange={(e) => setStruct({ ...struct, scoringMode: e.target.value })}>
+                  <option value="SETS">Set (al meglio di N)</option>
+                  <option value="GAMES_TARGET">A target (primo a N game)</option>
+                  <option value="TIME">A tempo</option>
+                </select>
+              </div>
+              {struct.scoringMode === 'SETS' && (
+                <>
+                  <div className="field"><label>Set al meglio di</label><input type="number" min={1} max={3} value={struct.maxSets} onChange={(e) => setStruct({ ...struct, maxSets: Number(e.target.value) })} /></div>
+                  <div className="field"><label>Game per set</label><input type="number" min={1} value={struct.gamesPerSet} onChange={(e) => setStruct({ ...struct, gamesPerSet: Number(e.target.value) })} /></div>
+                </>
+              )}
+              {struct.scoringMode === 'GAMES_TARGET' && (
+                <div className="field"><label>Game da raggiungere</label><input type="number" min={1} value={struct.targetGames} onChange={(e) => setStruct({ ...struct, targetGames: Number(e.target.value) })} /></div>
+              )}
+              <div className="field"><label>Numero di gironi</label><input type="number" min={1} value={struct.groupCount} onChange={(e) => setStruct({ ...struct, groupCount: Number(e.target.value) })} /></div>
+              <div className="field"><label>Qualificati per girone</label><input type="number" min={1} value={struct.qualifiedPerGroup} onChange={(e) => setStruct({ ...struct, qualifiedPerGroup: Number(e.target.value) })} /></div>
+              <div className="field"><label>Fase finale da</label>
+                <select value={struct.finalStartRound} onChange={(e) => setStruct({ ...struct, finalStartRound: e.target.value })}>
+                  <option value="R16">Sedicesimi</option><option value="R8">Ottavi</option><option value="QF">Quarti</option><option value="SF">Semifinali</option><option value="FINAL">Solo finale</option>
+                </select>
+              </div>
+              <div className="field"><label>Tabelloni</label>
+                <select value={struct.splitGoldSilver ? 'gs' : 'single'} onChange={(e) => setStruct({ ...struct, splitGoldSilver: e.target.value === 'gs' })}>
+                  <option value="gs">Gold + Silver</option><option value="single">Tabellone unico</option>
+                </select>
+              </div>
+              <div className="field"><label>Soglia 1ª fascia</label><input type="number" step={0.1} value={struct.tier1} onChange={(e) => setStruct({ ...struct, tier1: e.target.value })} /></div>
+              <div className="field"><label>Soglia 2ª fascia</label><input type="number" step={0.1} value={struct.tier2} onChange={(e) => setStruct({ ...struct, tier2: e.target.value })} /></div>
+              <div className="field"><label>MVP attivo</label>
+                <select value={struct.mvpEnabled ? 'si' : 'no'} onChange={(e) => setStruct({ ...struct, mvpEnabled: e.target.value === 'si' })}><option value="si">Sì</option><option value="no">No</option></select>
+              </div>
+              <div className="field"><label>Conta MVP fino a</label>
+                <select value={struct.mvpThroughPhase} onChange={(e) => setStruct({ ...struct, mvpThroughPhase: e.target.value })}>
+                  <option value="GROUP">Solo gironi</option><option value="R16">Sedicesimi</option><option value="R8">Ottavi</option><option value="QF">Quarti</option><option value="SF">Semifinali</option><option value="FINAL">Finale</option>
+                </select>
+              </div>
+            </div>
+            <div className="actions"><button className="button secondary" disabled={savingStruct} onClick={saveStruct}>{savingStruct ? 'Salvataggio...' : 'Salva impostazioni'}</button></div>
+          </>
+        )}
       </div>
 
       <div style={{ marginTop: 20 }}>
