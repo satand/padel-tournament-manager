@@ -38,6 +38,11 @@ export default async function TournamentsListPage() {
                 <div>
                   <span className="badge">{t.format.replace(/_/g, ' ')}</span>
                   <h3 style={{ marginTop: 8 }}>{t.name}</h3>
+                  {t.startsAt && (
+                    <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
+                      Inizio: {new Date(t.startsAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span className="badge" style={{
@@ -52,11 +57,6 @@ export default async function TournamentsListPage() {
                 <div className="stat"><div className="stat-label">Partite</div><div className="stat-value">{t._count.matches}</div></div>
                 <div className="stat"><div className="stat-label">Campi</div><div className="stat-value">{t.settings?.courtsCount ?? '—'}</div></div>
               </div>
-              {t.startsAt && (
-                <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 10, marginBottom: 0 }}>
-                  Inizio: {new Date(t.startsAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </p>
-              )}
               <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6, marginBottom: 0 }}>
                 Creato il {new Date(t.createdAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
               </p>

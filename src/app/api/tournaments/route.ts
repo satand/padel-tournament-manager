@@ -52,6 +52,7 @@ export async function POST(request: Request) {
       format,
       status: 'DRAFT',
       organizerId: organizer.id,
+      startsAt: typeof body.startsAt === 'string' && !Number.isNaN(Date.parse(body.startsAt)) ? new Date(body.startsAt) : null,
       settings: {
         create: {
           courtsCount: num(body.courtsCount, 2),
