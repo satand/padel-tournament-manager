@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
-import { defaultTournamentRules, type MVPVote, type Match as DomainMatch, type Participant, type Player, type TournamentRules } from '@/lib/domain/types';
+import { defaultMVPSettings, defaultTournamentRules, type MVPSettings, type MVPStandingRow, type MVPVote, type Match as DomainMatch, type Participant, type Player, type TournamentRules } from '@/lib/domain/types';
+import { calculateMVPStandings, filterMatchesThroughPhase, type MvpThrough } from '@/lib/domain/mvp';
 
 export const tournamentInclude = {
   settings: true,
@@ -126,4 +127,33 @@ export function toDomainContext(tournament: TournamentWithIncludes): TournamentC
     courts,
     groups
   };
+}
+
+export function buildMVPSettings(settings: TournamentWithIncludes['settings']): MVPSettings {
+  const weights = (settings?.mvpWeights as Partial<MVPSettings>) ?? {};
+  return {
+    ...defaultMVPSettings,
+    ...weights,
+    enabled: settings?.mvpEnabled ?? defaultMVPSettings.enabled
+  };
+}
+
+export function computeMvp(ctx: TournamentContext): { rows: MVPStandingRow[]; through: MvpThrough } {
+  const through = (ctx.settings?.mvpThroughPhase ?? 'FINAL') as MvpThrough;
+  const scoped = filterMatchesThroughPhase(ctx.matches, through);
+  const allowed = new Set(scoped.map((m) => m.id));
+  const votes = ctx.mvpVotes.filter((v) => allowed.has(v.matchId));
+
+  let winnerPlayerIds: string[] = [];
+  if (through === 'FINAL') {
+    const decided = ctx.matches
+      .filter((m) => m.phase === 'final' && (m.bracket === 'GOLD' || m.bracket === null || m.bracket === undefined))
+      .find((m) => m.winnerId && ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
+    if (decided?.winnerId) {
+      winnerPlayerIds = ctx.participants.find((p) => p.id === decided.winnerId)?.playerIds ?? [];
+    }
+  }
+
+  const rows = calculateMVPStandings(ctx.players, ctx.participants, scoped, votes, buildMVPSettings(ctx.settings), winnerPlayerIds);
+  return { rows, through };
 }

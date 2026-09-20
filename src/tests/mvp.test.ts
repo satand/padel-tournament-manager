@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateMVPStandings } from '@/lib/domain/mvp';
+import { calculateMVPStandings, filterMatchesThroughPhase, matchPhaseRank } from '@/lib/domain/mvp';
 import { defaultMVPSettings, type Match, type MVPVote, type Participant, type Player } from '@/lib/domain/types';
 
 const players: Player[] = [
@@ -26,5 +26,28 @@ describe('mvp engine', () => {
     expect(standings[0].playerId).toBe('p1');
     expect(standings[0].mvpCount).toBe(2);
     expect(standings[0].finalBonus).toBe(3);
+  });
+});
+
+describe('mvp scope fino-a-fase', () => {
+  const m: Match[] = [
+    { id: 'g', participantAId: 't1', participantBId: 't2', status: 'COMPLETED', sets: [], phase: 'group' },
+    { id: 'r', participantAId: 't1', participantBId: 't2', status: 'COMPLETED', sets: [], phase: 'round-1' },
+    { id: 'qf', participantAId: 't1', participantBId: 't2', status: 'COMPLETED', sets: [], phase: 'quarterfinal' },
+    { id: 'sf', participantAId: 't1', participantBId: 't2', status: 'COMPLETED', sets: [], phase: 'semifinal' },
+    { id: 'f', participantAId: 't1', participantBId: 't2', status: 'COMPLETED', sets: [], phase: 'final' }
+  ];
+  const ids = (t: Parameters<typeof filterMatchesThroughPhase>[1]) => filterMatchesThroughPhase(m, t).map((x) => x.id);
+
+  it('ordina le fasi dalla più alla meno avanzata', () => {
+    expect(['group', 'round-1', 'quarterfinal', 'semifinal', 'final'].map(matchPhaseRank)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('include solo le partite fino alla fase scelta', () => {
+    expect(ids('GROUP')).toEqual(['g']);
+    expect(ids('R16')).toEqual(['g', 'r']);
+    expect(ids('QF')).toEqual(['g', 'r', 'qf']);
+    expect(ids('SF')).toEqual(['g', 'r', 'qf', 'sf']);
+    expect(ids('FINAL')).toEqual(['g', 'r', 'qf', 'sf', 'f']);
   });
 });

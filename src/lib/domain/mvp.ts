@@ -1,5 +1,45 @@
 import type { Match, MVPSettings, MVPStandingRow, MVPVote, Participant, Player } from './types';
 
+export type MvpThrough = 'GROUP' | 'R16' | 'R8' | 'QF' | 'SF' | 'FINAL';
+
+// Soglia di fase per l'MVP: l'MVP considera solo le partite fino alla fase scelta.
+export function mvpScopeThreshold(through: MvpThrough): number {
+  switch (through) {
+    case 'GROUP': return 1;
+    case 'R16': return 2;
+    case 'R8': return 3;
+    case 'QF': return 3;
+    case 'SF': return 4;
+    case 'FINAL': return 5;
+    default: return 5;
+  }
+}
+
+// Rang di una fase di partita (1 = girone ... 5 = finale).
+export function matchPhaseRank(phase?: string): number {
+  const p = (phase ?? 'group').toLowerCase();
+  if (p === 'group') return 1;
+  if (p === 'quarterfinal') return 3;
+  if (p === 'semifinal') return 4;
+  if (p === 'final') return 5;
+  if (p.startsWith('round-')) return 2; // primo turno a eliminazione (R16)
+  return 1;
+}
+
+export function filterMatchesThroughPhase(matches: Match[], through: MvpThrough): Match[] {
+  const threshold = mvpScopeThreshold(through);
+  return matches.filter((match) => matchPhaseRank(match.phase) <= threshold);
+}
+
+export const MVP_THROUGH_LABEL: Record<MvpThrough, string> = {
+  GROUP: 'fase a gironi',
+  R16: 'sedicesimi',
+  R8: 'ottavi',
+  QF: 'quarti di finale',
+  SF: 'semifinali',
+  FINAL: 'finale'
+};
+
 export function calculateMVPStandings(
   players: Player[],
   participants: Participant[],

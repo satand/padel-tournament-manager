@@ -1,10 +1,9 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/server/db';
-import { tournamentInclude, toDomainContext, type TournamentContext } from '@/lib/server/serialize';
+import { tournamentInclude, toDomainContext, computeMvp, type TournamentContext } from '@/lib/server/serialize';
 import { demoTournament } from '@/lib/demo/demo-data';
 import { calculateRanking } from '@/lib/domain/ranking';
-import { averageMvpRatingByParticipant, calculateMVPStandings } from '@/lib/domain/mvp';
-import { defaultMVPSettings } from '@/lib/domain/types';
+import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
 import { RankingTable } from '@/components/RankingTable';
 import { MVPTable } from '@/components/MVPTable';
 import { MatchList } from '@/components/MatchList';
@@ -43,7 +42,7 @@ export default async function PublicTournamentPage({ params }: { params: Promise
 
   const avgMvp = averageMvpRatingByParticipant(data.participants, data.mvpVotes);
   const overallRanking = calculateRanking(data.participants, data.matches, data.rules, avgMvp);
-  const mvp = calculateMVPStandings(data.players, data.participants, data.matches, data.mvpVotes, defaultMVPSettings);
+  const mvp = computeMvp(data);
   const courtNames: Record<string, string> = Object.fromEntries(data.courts.map((c) => [c.id, c.name]));
 
   const completed = data.matches.filter((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
@@ -77,7 +76,12 @@ export default async function PublicTournamentPage({ params }: { params: Promise
         overallRanking.length > 0 && <section className="panel"><h2>Classifica</h2><RankingTable rows={overallRanking} /></section>
       )}
 
-      {mvp.length > 0 && <section className="panel"><h2>Miglior giocatore</h2><MVPTable rows={mvp} /></section>}
+      {mvp.rows.length > 0 && (
+        <section className="panel">
+          <h2>Miglior giocatore <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--muted)' }}>· fino alla {MVP_THROUGH_LABEL[mvp.through]}</span></h2>
+          <MVPTable rows={mvp.rows} />
+        </section>
+      )}
 
       {completed.length > 0 && (
         <section className="panel"><h2>Risultati ({completed.length})</h2><MatchList matches={completed} participants={data.participants} courtNames={courtNames} /></section>
