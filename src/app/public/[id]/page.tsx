@@ -45,6 +45,7 @@ export default async function PublicTournamentPage({ params }: { params: Promise
   const overallRanking = calculateRanking(data.participants, data.matches, data.rules, avgMvp);
   const mvp = computeMvp(data);
   const courtNames: Record<string, string> = Object.fromEntries(data.courts.map((c) => [c.id, c.name]));
+  const groupNames: Record<string, string> = Object.fromEntries(data.groups.map((g) => [g.id, g.name]));
 
   const completed = data.matches.filter((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
   const scheduled = data.matches.filter((m) => ['SCHEDULED', 'IN_PROGRESS'].includes(m.status));
@@ -85,10 +86,10 @@ export default async function PublicTournamentPage({ params }: { params: Promise
       )}
 
       {completed.length > 0 && (
-        <section className="panel"><h2>Risultati ({completed.length})</h2><MatchList matches={completed} participants={data.participants} courtNames={courtNames} /></section>
+        <section className="panel"><h2>Risultati ({completed.length})</h2><MatchList matches={completed} participants={data.participants} courtNames={courtNames} groupNames={groupNames} /></section>
       )}
       {scheduled.length > 0 && (
-        <section className="panel"><h2>Prossime partite ({scheduled.length})</h2><MatchList matches={scheduled} participants={data.participants} courtNames={courtNames} /></section>
+        <section className="panel"><h2>Prossime partite ({scheduled.length})</h2><MatchList matches={scheduled} participants={data.participants} courtNames={courtNames} groupNames={groupNames} /></section>
       )}
       {data.matches.length === 0 && (
         <section className="panel"><p style={{ color: 'var(--muted)' }}>Il torneo non ha ancora partite programmate.</p></section>

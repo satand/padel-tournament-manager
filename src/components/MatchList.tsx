@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Match, Participant, TournamentRules } from '@/lib/domain/types';
 import { validateMatchResult } from '@/lib/domain/validators';
+import { phaseLabel } from '@/lib/domain/labels';
 
 type MvpInfo = { matchId: string; playerId: string; rating: number; penalty?: number };
 
@@ -12,13 +13,14 @@ type Props = {
   participants: Participant[];
   players?: { id: string; displayName: string }[];
   courtNames?: Record<string, string>;
+  groupNames?: Record<string, string>;
   editable?: boolean;
   tournamentId?: string;
   rules?: TournamentRules;
   mvpVotes?: MvpInfo[];
 };
 
-export function MatchList({ matches, participants, players = [], courtNames = {}, editable = false, tournamentId, rules, mvpVotes = [] }: Props) {
+export function MatchList({ matches, participants, players = [], courtNames = {}, groupNames = {}, editable = false, tournamentId, rules, mvpVotes = [] }: Props) {
   const name = new Map(participants.map((p) => [p.id, p.displayName]));
   const playerNameMap = new Map(players.map((p) => [p.id, p.displayName]));
   return (
@@ -32,6 +34,7 @@ export function MatchList({ matches, participants, players = [], courtNames = {}
             nameA={name.get(match.participantAId ?? '') ?? match.participantAId ?? 'In attesa'}
             nameB={name.get(match.participantBId ?? '') ?? match.participantBId ?? 'In attesa'}
             courtName={match.courtId ? (courtNames[match.courtId] ?? match.courtId) : undefined}
+            groupNames={groupNames}
             editable={editable && ['SCHEDULED', 'IN_PROGRESS'].includes(match.status)}
             tournamentId={tournamentId}
             rules={rules}
@@ -50,6 +53,7 @@ type CardProps = {
   nameA: string;
   nameB: string;
   courtName?: string;
+  groupNames?: Record<string, string>;
   editable: boolean;
   tournamentId?: string;
   rules?: TournamentRules;
@@ -58,7 +62,7 @@ type CardProps = {
   matchMvp: { playerId: string; playerName: string; rating: number; penalty?: number }[];
 };
 
-function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rules, participants, players, matchMvp }: CardProps) {
+function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, tournamentId, rules, participants, players, matchMvp }: CardProps) {
   const router = useRouter();
   const isCompleted = ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(match.status);
   const canEdit = editable || (!!tournamentId && !!rules && isCompleted);
@@ -137,7 +141,7 @@ function MatchCard({ match, nameA, nameB, courtName, editable, tournamentId, rul
   return (
     <article className="match-card">
       <div className="match-meta">
-        <span>{match.phase ?? 'fase'}</span>
+        <span>{match.groupId ? (groupNames[match.groupId] ?? phaseLabel(match.phase)) : phaseLabel(match.phase)}</span>
         <span>Turno {match.roundIndex}</span>
         <span>{courtName ?? 'Campo da assegnare'}</span>
         <span>{match.scheduledAt ? new Date(match.scheduledAt).toLocaleString('it-IT') : 'Orario da assegnare'}</span>

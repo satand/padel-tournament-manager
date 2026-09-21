@@ -58,6 +58,7 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
   const completedMatches = groupOnly.filter((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
   const otherMatches = groupOnly.filter((m) => ['CANCELLED', 'POSTPONED'].includes(m.status));
   const courtNames: Record<string, string> = Object.fromEntries(data.courts.map((c) => [c.id, c.name]));
+  const groupNames: Record<string, string> = Object.fromEntries(data.groups.map((g) => [g.id, g.name]));
 
   const participantsForAdmin = data.participants.map((p) => ({
     id: p.id,
@@ -152,25 +153,25 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
       {scheduledMatches.length > 0 && (
         <section className="panel">
           <h2>Prossime partite ({scheduledMatches.length})</h2>
-          <MatchList matches={scheduledMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} editable={!data.isDemo} tournamentId={data.id} rules={data.rules} />
+          <MatchList matches={scheduledMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={!data.isDemo} tournamentId={data.id} rules={data.rules} />
         </section>
       )}
       {completedMatches.length > 0 && (
         <section className="panel">
           <h2>Risultati ({completedMatches.length})</h2>
-          <MatchList matches={completedMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} mvpVotes={data.mvpVotes.map((v) => ({ matchId: v.matchId, playerId: v.playerId, rating: v.rating, penalty: v.penalty }))} tournamentId={data.isDemo ? undefined : data.id} rules={data.isDemo ? undefined : data.rules} />
+          <MatchList matches={completedMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} mvpVotes={data.mvpVotes.map((v) => ({ matchId: v.matchId, playerId: v.playerId, rating: v.rating, penalty: v.penalty }))} tournamentId={data.isDemo ? undefined : data.id} rules={data.isDemo ? undefined : data.rules} />
         </section>
       )}
       {finalMatches.length > 0 && (
         <section className="panel">
           <h2>Fase finale ({finalMatches.length})</h2>
-          <MatchList matches={finalMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} editable={!data.isDemo} tournamentId={data.id} rules={data.rules} />
+          <MatchList matches={finalMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={!data.isDemo} tournamentId={data.id} rules={data.rules} />
         </section>
       )}
       {otherMatches.length > 0 && (
         <section className="panel">
           <h2>Rinviate / Cancellate ({otherMatches.length})</h2>
-          <MatchList matches={otherMatches} participants={data.participants} courtNames={courtNames} />
+          <MatchList matches={otherMatches} participants={data.participants} courtNames={courtNames} groupNames={groupNames} />
         </section>
       )}
     </main>

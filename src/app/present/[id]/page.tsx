@@ -8,6 +8,7 @@ import { RankingTable } from '@/components/RankingTable';
 import { MVPTable } from '@/components/MVPTable';
 import { PresentAutoRefresh } from '@/components/PresentAutoRefresh';
 import type { Match } from '@/lib/domain/types';
+import { phaseLabel } from '@/lib/domain/labels';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,7 +61,7 @@ function MatchCell({ match, names }: { match: Match; names: Map<string, string> 
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'white', minWidth: 220, flex: '0 0 auto' }}>
       <div style={{ fontSize: 12, color: 'var(--muted)', padding: '4px 8px', background: '#f8fafc' }}>
-        {match.phase}{match.courtId ? ` · ${match.courtId}` : ''} · {fmtTime(match.scheduledAt)}
+        {phaseLabel(match.phase)}{match.courtId ? ` · ${match.courtId}` : ''} · {fmtTime(match.scheduledAt)}
       </div>
       <FinalSlot match={match} side="A" names={names} />
       <FinalSlot match={match} side="B" names={names} />
@@ -79,7 +80,7 @@ function BracketView({ bracket, matches, names }: { bracket: string; matches: Ma
           const roundMatches = matches.filter((m) => (m.roundIndex ?? 0) === round).sort((a, b) => a.id.localeCompare(b.id));
           return (
             <div key={round} style={{ display: 'flex', flexDirection: 'column', gap: 12, justifyContent: 'space-around', minHeight: 120 }}>
-              <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>{roundMatches[0]?.phase ?? `Turno ${round}`}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>{roundMatches[0]?.phase ? phaseLabel(roundMatches[0].phase) : `Turno ${round}`}</div>
               {roundMatches.map((m) => <MatchCell key={m.id} match={m} names={names} />)}
             </div>
           );
@@ -152,7 +153,7 @@ export default async function PresentTournamentPage({ params }: { params: Promis
                 {upcoming.map((m) => (
                   <li key={m.id} style={{ fontSize: 18 }}>
                     <strong>{names.get(m.participantAId ?? '')}</strong> vs <strong>{names.get(m.participantBId ?? '')}</strong>
-                    <span style={{ color: 'var(--muted)', fontSize: 14 }}> — {m.phase}, {fmtTime(m.scheduledAt)}</span>
+                    <span style={{ color: 'var(--muted)', fontSize: 14 }}> — {phaseLabel(m.phase)}, {fmtTime(m.scheduledAt)}</span>
                   </li>
                 ))}
               </ul>
