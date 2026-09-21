@@ -8,6 +8,7 @@ import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/m
 import { RankingTable } from '@/components/RankingTable';
 import { MVPTable } from '@/components/MVPTable';
 import { MatchList } from '@/components/MatchList';
+import { RandomizeGroupResultsEasterEgg } from '@/components/RandomizeGroupResultsEasterEgg';
 import { TournamentActions } from '@/components/TournamentActions';
 import { DeleteTournamentButton } from '@/components/DeleteTournamentButton';
 
@@ -152,7 +153,11 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
 
       {scheduledMatches.length > 0 && (
         <section className="panel">
-          <h2>Prossime partite ({scheduledMatches.length})</h2>
+          {data.isDemo ? (
+            <h2>Prossime partite ({scheduledMatches.length})</h2>
+          ) : (
+            <RandomizeGroupResultsEasterEgg tournamentId={data.id} count={scheduledMatches.length} />
+          )}
           <MatchList matches={scheduledMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={!data.isDemo} tournamentId={data.id} rules={data.rules} />
         </section>
       )}
