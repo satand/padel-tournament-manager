@@ -19,8 +19,6 @@ type WizardData = {
   pointsLoss: number;
   mvpEnabled: boolean;
   mvpThroughPhase: string;
-  tier1: string;
-  tier2: string;
   matchDurationMinutes: number;
   minRestMinutes: number;
   maxMatchesPerPlayerDay: number;
@@ -43,8 +41,6 @@ const initialData: WizardData = {
   pointsLoss: 0,
   mvpEnabled: true,
   mvpThroughPhase: 'FINAL',
-  tier1: '4.5',
-  tier2: '3.5',
   matchDurationMinutes: 30,
   minRestMinutes: 15,
   maxMatchesPerPlayerDay: 6,
@@ -69,8 +65,6 @@ export function TournamentWizard() {
     setSubmitting(true);
     setError(null);
 
-    const tierThresholds = [Number(data.tier1), Number(data.tier2)].filter((n) => Number.isFinite(n) && n > 0);
-
     try {
       const res = await fetch('/api/tournaments', {
         method: 'POST',
@@ -93,7 +87,6 @@ export function TournamentWizard() {
           pointsLoss: data.pointsLoss,
           mvpEnabled: data.mvpEnabled,
           mvpThroughPhase: data.mvpThroughPhase,
-          tierThresholds,
           matchDurationMinutes: data.matchDurationMinutes,
           minRestMinutes: data.minRestMinutes,
           maxMatchesPerPlayerDay: data.maxMatchesPerPlayerDay,
@@ -176,15 +169,6 @@ export function TournamentWizard() {
           )}
           <div className="field"><label>Punti vittoria</label><input type="number" value={data.pointsWin} onChange={(e) => update('pointsWin', Number(e.target.value))} /></div>
           <div className="field"><label>Punti sconfitta</label><input type="number" value={data.pointsLoss} onChange={(e) => update('pointsLoss', Number(e.target.value))} /></div>
-        </div>
-      </div>
-
-      <div style={sectionStyle}>
-        <h3>Fasce di livello (per gironi bilanciati)</h3>
-        <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 6px' }}>Soglie in discesa: livello ≥ 1ª soglia = 1ª fascia, ≥ 2ª soglia = 2ª fascia, altrimenti 3ª.</p>
-        <div className="form-grid">
-          <div className="field"><label>Soglia 1ª fascia</label><input type="number" step={0.1} placeholder="Es. 4.5" value={data.tier1} onChange={(e) => update('tier1', e.target.value)} /></div>
-          <div className="field"><label>Soglia 2ª fascia</label><input type="number" step={0.1} placeholder="Es. 3.5" value={data.tier2} onChange={(e) => update('tier2', e.target.value)} /></div>
         </div>
       </div>
 

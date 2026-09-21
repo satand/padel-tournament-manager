@@ -95,7 +95,6 @@ export function QuickSeedTitle() {
           maxSets: 1,
           gamesPerSet: 6,
           finalStartRound: 'SF',
-          tierThresholds: [5.5, 4],
           mvpEnabled: true,
           mvpThroughPhase: 'FINAL'
         })

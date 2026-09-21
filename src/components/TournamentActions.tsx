@@ -55,12 +55,11 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
   const [presentSlideSeconds, setPresentSlideSeconds] = useState<number | ''>(settings?.presentSlideSeconds ?? 6);
   const [savingProj, setSavingProj] = useState(false);
 
-  const thresholds = Array.isArray(settings?.tierThresholds) ? (settings!.tierThresholds as unknown[]) : [];
   const [savingStruct, setSavingStruct] = useState(false);
   const [struct, setStruct] = useState<{
     scoringMode: string; maxSets: number; gamesPerSet: number; targetGames: number;
     groupCount: number; qualifiedPerGroup: number; finalStartRound: string;
-    splitGoldSilver: boolean; mvpEnabled: boolean; mvpThroughPhase: string; tier1: string; tier2: string;
+    splitGoldSilver: boolean; mvpEnabled: boolean; mvpThroughPhase: string;
   }>({
     scoringMode: settings?.scoringMode ?? 'SETS',
     maxSets: settings?.maxSets ?? 1,
@@ -71,9 +70,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
     finalStartRound: settings?.finalStartRound ?? 'SF',
     splitGoldSilver: settings?.splitGoldSilver ?? true,
     mvpEnabled: settings?.mvpEnabled ?? true,
-    mvpThroughPhase: settings?.mvpThroughPhase ?? 'FINAL',
-    tier1: thresholds[0] != null ? String(thresholds[0]) : '4.5',
-    tier2: thresholds[1] != null ? String(thresholds[1]) : '3.5'
+    mvpThroughPhase: settings?.mvpThroughPhase ?? 'FINAL'
   });
 
   function setMessageLater(type: 'success' | 'error', text: string) {
@@ -221,7 +218,6 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
     setSavingStruct(true);
     setMessage(null);
     try {
-      const tierThresholds = [Number(struct.tier1), Number(struct.tier2)].filter((n) => Number.isFinite(n) && n > 0);
       const res = await fetch(`/api/tournaments/${tournamentId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -235,8 +231,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
           finalStartRound: struct.finalStartRound,
           splitGoldSilver: struct.splitGoldSilver,
           mvpEnabled: struct.mvpEnabled,
-          mvpThroughPhase: struct.mvpThroughPhase,
-          tierThresholds
+          mvpThroughPhase: struct.mvpThroughPhase
         })
       });
       if (!res.ok) throw new Error('Impossibile salvare le impostazioni strutturali.');
@@ -407,8 +402,6 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
                   <option value="gs">Gold + Silver</option><option value="single">Tabellone unico</option>
                 </select>
               </div>
-              <div className="field"><label>Soglia 1ª fascia</label><input type="number" step={0.1} value={struct.tier1} onChange={(e) => setStruct({ ...struct, tier1: e.target.value })} /></div>
-              <div className="field"><label>Soglia 2ª fascia</label><input type="number" step={0.1} value={struct.tier2} onChange={(e) => setStruct({ ...struct, tier2: e.target.value })} /></div>
               <div className="field"><label>MVP attivo</label>
                 <select value={struct.mvpEnabled ? 'si' : 'no'} onChange={(e) => setStruct({ ...struct, mvpEnabled: e.target.value === 'si' })}><option value="si">Sì</option><option value="no">No</option></select>
               </div>

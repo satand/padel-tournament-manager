@@ -42,8 +42,6 @@ export async function POST(request: Request) {
   const finalStartRound = pick(body.finalStartRound, ['R16', 'R8', 'QF', 'SF', 'FINAL'] as const, 'FINAL');
   const mvpThroughPhase = pick(body.mvpThroughPhase, ['GROUP', 'R16', 'R8', 'QF', 'SF', 'FINAL'] as const, 'FINAL');
 
-  const tierThresholds = Array.isArray(body.tierThresholds) ? body.tierThresholds.filter((t: unknown) => typeof t === 'number') : null;
-
   const tournament = await prisma.tournament.create({
     data: {
       name,
@@ -70,7 +68,6 @@ export async function POST(request: Request) {
           splitGoldSilver: Boolean(body.splitGoldSilver),
           mvpThroughPhase,
           presentSlideSeconds: body.presentSlideSeconds != null ? Math.min(120, Math.max(2, Math.trunc(num(body.presentSlideSeconds, 6)))) : null,
-          tierThresholds: tierThresholds && tierThresholds.length ? (tierThresholds as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
           allowDraws: Boolean(body.allowDraws ?? defaultTournamentRules.allowDraws),
           tieBreakEnabled: body.tieBreakEnabled ?? true,
           goldenPointEnabled: body.goldenPointEnabled ?? true,

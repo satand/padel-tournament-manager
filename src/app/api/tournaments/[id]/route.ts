@@ -52,7 +52,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     for (const key of ['splitGoldSilver', 'mvpEnabled', 'allowDraws'] as const) {
       if (typeof body[key] === 'boolean') data[key] = body[key];
     }
-    if (Array.isArray(body.tierThresholds)) data.tierThresholds = body.tierThresholds.filter((t: unknown) => typeof t === 'number');
 
     if ('startsAt' in body) {
       const raw = body.startsAt;

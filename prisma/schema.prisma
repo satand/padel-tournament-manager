@@ -151,7 +151,6 @@ model TournamentSettings {
   splitGoldSilver        Boolean         @default(false)
   mvpThroughPhase        MvpPhase        @default(FINAL)
   presentSlideSeconds    Int?
-  tierThresholds         Json?
   mvpWeights             Json
   scoreRules             Json
   customRules            Json?

@@ -1,23 +1,5 @@
 import type { Participant } from './types';
 
-export type TieredParticipant = Participant & { tier: number };
-
-// Fascia (1-based) da livello numerico con soglie fisse.
-// thresholds = tagli in ordine decrescente, es. [5, 4] -> >=5 = fascia 1, >=4 = fascia 2, altrimenti fascia 3.
-export function tierForLevel(level: number | undefined, thresholds: number[]): number {
-  if (!Array.isArray(thresholds) || thresholds.length === 0) return 1;
-  const cuts = [...thresholds].sort((a, b) => b - a);
-  const value = level ?? Number.NEGATIVE_INFINITY;
-  for (let i = 0; i < cuts.length; i += 1) {
-    if (value >= cuts[i]) return i + 1;
-  }
-  return cuts.length + 1;
-}
-
-export function assignTiers(participants: Participant[], thresholds: number[]): TieredParticipant[] {
-  return participants.map((participant) => ({ ...participant, tier: tierForLevel(participant.level, thresholds) }));
-}
-
 function levelValue(participant: Participant): number {
   return participant.level ?? Number.NEGATIVE_INFINITY;
 }
