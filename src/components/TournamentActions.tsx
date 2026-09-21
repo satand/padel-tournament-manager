@@ -21,7 +21,7 @@ type Props = {
 };
 
 type CoupleForm = { participantId: string | null; teamName: string; player1: string; player2: string; level: string };
-const emptyCouple: CoupleForm = { participantId: null, teamName: '', player1: '', player2: '', level: '' };
+const emptyCouple: CoupleForm = { participantId: null, teamName: '', player1: '', player2: '', level: '1' };
 
 function toInputDate(iso: string | null): string {
   if (!iso) return '';
@@ -83,7 +83,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
       teamName: p.displayName.includes(' / ') ? '' : p.displayName,
       player1: p.players[0]?.name ?? '',
       player2: p.players[1]?.name ?? '',
-      level: p.level != null ? String(p.level) : ''
+      level: p.level != null ? String(p.level) : '1'
     });
   }
 
@@ -92,13 +92,18 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
       setMessageLater('error', 'Inserisci entrambi i giocatori della coppia.');
       return;
     }
+    const levelNum = Number(couple.level);
+    if (!couple.level.trim() || !Number.isFinite(levelNum) || levelNum < 0 || levelNum > 10) {
+      setMessageLater('error', 'Imposta un livello valido (0–10) per la coppia.');
+      return;
+    }
     setBusy(true);
     setMessage(null);
     const payload = {
       teamName: couple.teamName.trim() || undefined,
       player1: couple.player1.trim(),
       player2: couple.player2.trim(),
-      level: couple.level.trim() ? Number(couple.level) : undefined
+      level: levelNum
     };
     try {
       const res = couple.participantId
@@ -300,8 +305,8 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
               <input placeholder="Nome e cognome" value={couple.player2} onChange={(e) => setCouple({ ...couple, player2: e.target.value })} />
             </div>
             <div className="field">
-              <label>Livello (0–10, 1 decimale)</label>
-              <input type="number" min={0} max={10} step={0.1} placeholder="Es. 4.5" value={couple.level} onChange={(e) => setCouple({ ...couple, level: e.target.value })} />
+              <label>Livello (obbligatorio, 0–10, 1 decimale)</label>
+              <input type="number" min={0} max={10} step={0.1} required value={couple.level} onChange={(e) => setCouple({ ...couple, level: e.target.value })} />
             </div>
           </div>
           <div className="actions">
