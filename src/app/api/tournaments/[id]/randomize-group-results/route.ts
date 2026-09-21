@@ -49,6 +49,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   if (!tournament?.settings) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
 
   const rules = buildRules(tournament.settings);
+  const mvpEnabled = Boolean(tournament.settings.mvpEnabled);
 
   const pending = await prisma.match.findMany({
     where: {
@@ -61,6 +62,15 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   });
 
   if (pending.length === 0) return NextResponse.json({ ok: true, filled: 0, skipped: 0 });
+
+  const participantPlayers = new Map<string, string[]>();
+  if (mvpEnabled) {
+    const parts = await prisma.tournamentParticipant.findMany({
+      where: { tournamentId: id },
+      include: { team: { include: { members: true } } }
+    });
+    for (const p of parts) participantPlayers.set(p.id, p.team?.members.map((m) => m.playerId) ?? []);
+  }
 
   let filled = 0;
   let skipped = 0;
@@ -91,6 +101,27 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
         }
       }
     });
+
+    if (mvpEnabled) {
+      const winnerPlayers = participantPlayers.get(result.winnerId) ?? [];
+      if (winnerPlayers.length > 0) {
+        const mvpPlayerId = winnerPlayers[randInt(0, winnerPlayers.length - 1)];
+        const mvpRating = Math.round((6 + Math.random() * 3.9) * 10) / 10;
+        const mvpPenalty = Math.random() < 0.2 ? 0.5 + Math.floor(Math.random() * 4) * 0.5 : 0;
+        await prisma.mVPVote.deleteMany({ where: { matchId: match.id } });
+        await prisma.mVPVote.create({
+          data: {
+            tournamentId: id,
+            matchId: match.id,
+            playerId: mvpPlayerId,
+            rating: mvpRating,
+            penalty: mvpPenalty,
+            weight: 1,
+            source: 'organizer'
+          }
+        });
+      }
+    }
     filled += 1;
   }
 

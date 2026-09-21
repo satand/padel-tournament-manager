@@ -223,11 +223,11 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
             ) : (
               <>
                 <div className="field">
-                  <label>{mode === 'GAMES_TARGET' ? 'Punti ' : 'Game '}{nameA.split(/[\/\s]/)[0]}</label>
+                  <label>{mode === 'GAMES_TARGET' ? 'Punti ' : 'Game '}{nameA}</label>
                   <input type="number" min={0} value={gamesA} onChange={(e) => setGamesA(Number(e.target.value))} />
                 </div>
                 <div className="field">
-                  <label>{mode === 'GAMES_TARGET' ? 'Punti ' : 'Game '}{nameB.split(/[\/\s]/)[0]}</label>
+                  <label>{mode === 'GAMES_TARGET' ? 'Punti ' : 'Game '}{nameB}</label>
                   <input type="number" min={0} value={gamesB} onChange={(e) => setGamesB(Number(e.target.value))} />
                 </div>
               </>
