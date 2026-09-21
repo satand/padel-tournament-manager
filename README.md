@@ -43,6 +43,35 @@ docker compose --env-file .env -f docker/docker-compose.yml down
 docker compose --env-file .env -f docker/docker-compose.yml up -d --build app
 ```
 
+### Avvio passo-passo su Windows
+
+Prerequisiti: **Docker Desktop in esecuzione** (backend WSL2 consigliato) e un terminale (PowerShell o CMD).
+
+1. **Procurati il codice**
+   ```bash
+   git clone https://github.com/satand/padel-tournament-manager.git
+   ```
+   (Se hai già il repo: `git pull`.)
+2. **Apri il terminale nella cartella radice** del progetto (quella con `package.json` e la cartella `docker/`).
+3. **Avvia** con un doppio click su `docker\start.bat` (oppure `npm run docker:start`). Il primo avvio costruisce l'immagine (pochi minuti) e crea il database, applicando le migrazioni in automatico.
+4. Al termine apri **http://localhost:3000**.
+
+Verifica rapida:
+```bash
+docker compose --env-file .env -f docker\docker-compose.yml ps
+docker\logs.bat
+```
+(nei log cerca "Ready"; `Ctrl+C` per uscire dai log).
+
+> **Prima volta su una nuova macchina?** Il database parte **vuoto** (il volume non eredita i tornei di altri PC). La **demo** resta comunque visibile; per popolare subito apri `/tournaments` e fai **triplo click** sul titolo "I tuoi tornei" (quick-seed).
+
+**Problemi tipici su Windows**
+- **Porta 5432 già usata** (es. un PostgreSQL installato in locale): in `docker/docker-compose.yml` cambia `"5432:5432"` in `"5433:5432"` (l'app dentro Compose usa comunque `db:5432`).
+- **Porta 3000 già usata**: cambia `"3000:3000"` in `"3001:3000"` e apri `http://localhost:3001` (eventualmente aggiorna `NEXT_PUBLIC_APP_URL`).
+- **`docker compose` non riconosciuto**: Docker Desktop non è in esecuzione, oppure prova `docker-compose` (v1, con il trattino).
+- **Percorso con spazi**: usa gli script `.bat` (gestiscono loro il path).
+- **Prima build fallita/lenta**: serve connessione a internet (scarica le immagini ed esegue `npm ci`); riprova con `docker\rebuild.bat`.
+
 ## Architettura
 
 Il progetto usa Next.js come shell applicativa e backend, con la logica di dominio separata in moduli TypeScript puri. Questo rende il motore torneo testabile e riusabile indipendentemente dalla UI.
