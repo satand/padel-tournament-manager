@@ -9,6 +9,7 @@ import { RankingTable } from '@/components/RankingTable';
 import { MVPTable } from '@/components/MVPTable';
 import { MatchList } from '@/components/MatchList';
 import { RandomizeGroupResultsEasterEgg } from '@/components/RandomizeGroupResultsEasterEgg';
+import { RandomizeFinalResultsEasterEgg } from '@/components/RandomizeFinalResultsEasterEgg';
 import { TournamentActions } from '@/components/TournamentActions';
 import { DeleteTournamentButton } from '@/components/DeleteTournamentButton';
 
@@ -169,7 +170,11 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
       )}
       {finalMatches.length > 0 && (
         <section className="panel">
-          <h2>Fase finale ({finalMatches.length})</h2>
+          {data.isDemo ? (
+            <h2>Fase finale ({finalMatches.length})</h2>
+          ) : (
+            <RandomizeFinalResultsEasterEgg tournamentId={data.id} count={finalMatches.length} />
+          )}
           <MatchList matches={finalMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={!data.isDemo} tournamentId={data.id} rules={data.rules} />
         </section>
       )}
