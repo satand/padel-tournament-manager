@@ -28,6 +28,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (value != null) data[key] = value;
   }
 
+  // Presentazione: tempo di cambio slide del carosello, modificabile in ogni stato.
+  const projSec = asInt(body.presentSlideSeconds);
+  if (projSec != null) data.presentSlideSeconds = Math.min(120, Math.max(2, projSec));
+
   if (tournament.status === 'DRAFT') {
     const structuralInt = ['gamesPerSet', 'targetGames', 'groupCount', 'qualifiedPerGroup'];
     for (const key of structuralInt) {

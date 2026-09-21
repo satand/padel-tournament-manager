@@ -69,6 +69,7 @@ export async function POST(request: Request) {
           finalStartRound,
           splitGoldSilver: Boolean(body.splitGoldSilver),
           mvpThroughPhase,
+          presentSlideSeconds: body.presentSlideSeconds != null ? Math.min(120, Math.max(2, Math.trunc(num(body.presentSlideSeconds, 6)))) : null,
           tierThresholds: tierThresholds && tierThresholds.length ? (tierThresholds as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
           allowDraws: Boolean(body.allowDraws ?? defaultTournamentRules.allowDraws),
           tieBreakEnabled: body.tieBreakEnabled ?? true,

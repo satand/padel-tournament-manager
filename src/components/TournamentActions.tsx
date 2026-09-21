@@ -52,6 +52,9 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
   const [startDate, setStartDate] = useState(toInputDate(startsAt));
   const [savingDate, setSavingDate] = useState(false);
 
+  const [presentSlideSeconds, setPresentSlideSeconds] = useState<number | ''>(settings?.presentSlideSeconds ?? 6);
+  const [savingProj, setSavingProj] = useState(false);
+
   const thresholds = Array.isArray(settings?.tierThresholds) ? (settings!.tierThresholds as unknown[]) : [];
   const [savingStruct, setSavingStruct] = useState(false);
   const [struct, setStruct] = useState<{
@@ -185,6 +188,32 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
       setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
     } finally {
       setSavingDate(false);
+    }
+  }
+
+  async function saveProiezione() {
+    const n = typeof presentSlideSeconds === 'number' ? presentSlideSeconds : NaN;
+    if (!Number.isFinite(n)) {
+      setMessageLater('error', 'Inserisci un numero di secondi valido (2–120).');
+      return;
+    }
+    const clamped = Math.min(120, Math.max(2, Math.trunc(n)));
+    setSavingProj(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/tournaments/${tournamentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ presentSlideSeconds: clamped })
+      });
+      if (!res.ok) throw new Error('Impossibile salvare il tempo di proiezione.');
+      setPresentSlideSeconds(clamped);
+      setMessageLater('success', 'Tempo di cambio slide salvato.');
+      router.refresh();
+    } catch (err) {
+      setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
+    } finally {
+      setSavingProj(false);
     }
   }
 
@@ -404,6 +433,15 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
           <div className="field"><label>Max partite/giorno</label><input type="number" min={1} value={calendario.maxMatchesPerPlayerDay} onChange={(e) => setCalendario({ ...calendario, maxMatchesPerPlayerDay: Number(e.target.value) })} style={inputStyle} /></div>
         </div>
         <div className="actions"><button className="button secondary" disabled={savingCal} onClick={saveCalendario}>{savingCal ? 'Salvataggio...' : 'Salva calendario'}</button></div>
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <h3>Schermo di proiezione</h3>
+        <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Secondi di permanenza di ogni slide nel carosello della schermata di proiezione (2–120).</p>
+        <div className="form-grid">
+          <div className="field"><label>Cambio automatico slide (secondi)</label><input type="number" min={2} max={120} value={presentSlideSeconds} onChange={(e) => setPresentSlideSeconds(e.target.value === '' ? '' : Number(e.target.value))} style={inputStyle} /></div>
+        </div>
+        <div className="actions"><button className="button secondary" disabled={savingProj} onClick={saveProiezione}>{savingProj ? 'Salvataggio...' : 'Salva proiezione'}</button></div>
       </div>
 
       <div style={{ marginTop: 20 }}>

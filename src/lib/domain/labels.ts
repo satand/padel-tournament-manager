@@ -1,3 +1,5 @@
+import type { MatchStatus } from '@/lib/domain/types';
+
 export function phaseLabel(phase?: string): string {
   if (!phase) return 'Fase';
   switch (phase) {
@@ -19,4 +21,18 @@ export function phaseLabel(phase?: string): string {
       return phase;
     }
   }
+}
+
+const STATUS_LABEL: Record<MatchStatus, string> = {
+  SCHEDULED: 'In programma',
+  IN_PROGRESS: 'In corso',
+  COMPLETED: 'Conclusa',
+  CANCELLED: 'Annullata',
+  POSTPONED: 'Posticipata',
+  WALKOVER: 'A tavolino',
+  RETIRED: 'Ritiro'
+};
+
+export function matchStatusLabel(status: MatchStatus): string {
+  return STATUS_LABEL[status] ?? status;
 }
