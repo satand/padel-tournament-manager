@@ -57,14 +57,17 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
 
   const [savingStruct, setSavingStruct] = useState(false);
   const [struct, setStruct] = useState<{
-    scoringMode: string; maxSets: number; gamesPerSet: number; targetGames: number;
+    scoringMode: string; targetGames: number;
+    finalScoringMode: string; finalMaxSets: number; finalGamesPerSet: number; finalTargetGames: number;
     groupCount: number; qualifiedPerGroup: number; finalStartRound: string;
     splitGoldSilver: boolean; mvpEnabled: boolean; mvpThroughPhase: string;
   }>({
-    scoringMode: settings?.scoringMode ?? 'SETS',
-    maxSets: settings?.maxSets ?? 1,
-    gamesPerSet: settings?.gamesPerSet ?? 6,
+    scoringMode: settings?.scoringMode === 'SETS' ? 'GAMES_TARGET' : (settings?.scoringMode ?? 'GAMES_TARGET'),
     targetGames: settings?.targetGames ?? 21,
+    finalScoringMode: settings?.finalScoringMode ?? '',
+    finalMaxSets: settings?.finalSetsPerMatch ?? 3,
+    finalGamesPerSet: settings?.finalGamesPerSet ?? 6,
+    finalTargetGames: settings?.finalTargetGames ?? 21,
     groupCount: settings?.groupCount ?? 2,
     qualifiedPerGroup: settings?.qualifiedPerGroup ?? 2,
     finalStartRound: settings?.finalStartRound ?? 'SF',
@@ -223,9 +226,11 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scoringMode: struct.scoringMode,
-          maxSets: struct.maxSets,
-          gamesPerSet: struct.gamesPerSet,
           targetGames: struct.targetGames,
+          finalScoringMode: struct.finalScoringMode || null,
+          finalMaxSets: struct.finalScoringMode ? struct.finalMaxSets : null,
+          finalGamesPerSet: struct.finalScoringMode ? struct.finalGamesPerSet : null,
+          finalTargetGames: struct.finalScoringMode ? struct.finalTargetGames : null,
           groupCount: struct.groupCount,
           qualifiedPerGroup: struct.qualifiedPerGroup,
           finalStartRound: struct.finalStartRound,
@@ -374,21 +379,31 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
           <>
             <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 8px' }}>Modificabili finché il torneo è in bozza (prima di generare il calendario).</p>
             <div className="form-grid">
-              <div className="field"><label>Modalità punteggio</label>
+              <div className="field"><label>Girone · Modalità punteggio</label>
                 <select value={struct.scoringMode} onChange={(e) => setStruct({ ...struct, scoringMode: e.target.value })}>
+                  <option value="GAMES_TARGET">A target (primo a N game)</option>
+                  <option value="TIME">A tempo</option>
+                </select>
+              </div>
+              {struct.scoringMode === 'GAMES_TARGET' && (
+                <div className="field"><label>Girone · Game da raggiungere</label><input type="number" min={1} value={struct.targetGames} onChange={(e) => setStruct({ ...struct, targetGames: Number(e.target.value) })} /></div>
+              )}
+              <div className="field"><label>Fase finale · Modalità punteggio</label>
+                <select value={struct.finalScoringMode} onChange={(e) => setStruct({ ...struct, finalScoringMode: e.target.value })}>
+                  <option value="">Uguale ai gironi</option>
                   <option value="SETS">Set (al meglio di N)</option>
                   <option value="GAMES_TARGET">A target (primo a N game)</option>
                   <option value="TIME">A tempo</option>
                 </select>
               </div>
-              {struct.scoringMode === 'SETS' && (
+              {struct.finalScoringMode === 'SETS' && (
                 <>
-                  <div className="field"><label>Set al meglio di</label><input type="number" min={1} max={3} value={struct.maxSets} onChange={(e) => setStruct({ ...struct, maxSets: Number(e.target.value) })} /></div>
-                  <div className="field"><label>Game per set</label><input type="number" min={1} value={struct.gamesPerSet} onChange={(e) => setStruct({ ...struct, gamesPerSet: Number(e.target.value) })} /></div>
+                  <div className="field"><label>Finale · Set al meglio di</label><input type="number" min={1} max={3} value={struct.finalMaxSets} onChange={(e) => setStruct({ ...struct, finalMaxSets: Number(e.target.value) })} /></div>
+                  <div className="field"><label>Finale · Game per set</label><input type="number" min={1} value={struct.finalGamesPerSet} onChange={(e) => setStruct({ ...struct, finalGamesPerSet: Number(e.target.value) })} /></div>
                 </>
               )}
-              {struct.scoringMode === 'GAMES_TARGET' && (
-                <div className="field"><label>Game da raggiungere</label><input type="number" min={1} value={struct.targetGames} onChange={(e) => setStruct({ ...struct, targetGames: Number(e.target.value) })} /></div>
+              {struct.finalScoringMode === 'GAMES_TARGET' && (
+                <div className="field"><label>Finale · Game da raggiungere</label><input type="number" min={1} value={struct.finalTargetGames} onChange={(e) => setStruct({ ...struct, finalTargetGames: Number(e.target.value) })} /></div>
               )}
               <div className="field"><label>Numero di gironi</label><input type="number" min={1} value={struct.groupCount} onChange={(e) => setStruct({ ...struct, groupCount: Number(e.target.value) })} /></div>
               <div className="field"><label>Qualificati per girone</label><input type="number" min={1} value={struct.qualifiedPerGroup} onChange={(e) => setStruct({ ...struct, qualifiedPerGroup: Number(e.target.value) })} /></div>

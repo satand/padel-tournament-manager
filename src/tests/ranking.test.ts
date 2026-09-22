@@ -50,28 +50,28 @@ describe('ranking engine', () => {
     expect(mini[0].gameDiff).toBe(3);
   });
 
-  it('TIME: classifica solo per vittorie, senza set e game', () => {
+  it('TIME: conta un set e il tally di game per ogni vittoria (mai pari)', () => {
     const matches: Match[] = [
-      { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [], winnerId: 'a' },
-      { id: 'm2', participantAId: 'a', participantBId: 'c', status: 'COMPLETED', sets: [], winnerId: 'a' },
-      { id: 'm3', participantAId: 'b', participantBId: 'c', status: 'COMPLETED', sets: [], winnerId: 'b' }
+      { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 12, gamesB: 9 }], winnerId: 'a' },
+      { id: 'm2', participantAId: 'a', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 11, gamesB: 8 }], winnerId: 'a' },
+      { id: 'm3', participantAId: 'b', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 10, gamesB: 8 }], winnerId: 'b' }
     ];
     const ranking = calculateRanking(participants, matches, { ...defaultTournamentRules, scoringMode: 'TIME' });
     expect(ranking.map((r) => r.participantId)).toEqual(['a', 'b', 'c']);
     expect(ranking[0].points).toBe(6);
-    expect(ranking[0].setsWon).toBe(0);
-    expect(ranking[0].gameDiff).toBe(0);
+    expect(ranking[0].setsWon).toBe(2);
+    expect(ranking[0].gameDiff).toBe(6);
   });
 
-  it('GAMES_TARGET: usa il tally in game e ignora i set', () => {
+  it('GAMES_TARGET: tally in game e conta un set per chi raggiunge il target', () => {
     const matches: Match[] = [
-      { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 10, gamesB: 7 }] },
-      { id: 'm2', participantAId: 'a', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 10, gamesB: 4 }] },
-      { id: 'm3', participantAId: 'b', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 10, gamesB: 9 }] }
+      { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 10, gamesB: 7 }], winnerId: 'a' },
+      { id: 'm2', participantAId: 'a', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 10, gamesB: 4 }], winnerId: 'a' },
+      { id: 'm3', participantAId: 'b', participantBId: 'c', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 10, gamesB: 9 }], winnerId: 'b' }
     ];
     const ranking = calculateRanking(participants, matches, { ...defaultTournamentRules, scoringMode: 'GAMES_TARGET' });
     expect(ranking.map((r) => r.participantId)).toEqual(['a', 'b', 'c']);
-    expect(ranking[0].setsWon).toBe(0);
+    expect(ranking[0].setsWon).toBe(2);
     expect(ranking[0].gamesWon).toBe(20);
     expect(ranking[0].gameDiff).toBe(9);
   });

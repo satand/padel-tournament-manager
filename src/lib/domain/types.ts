@@ -2,6 +2,14 @@ export type ParticipantType = 'TEAM';
 
 export type ScoringMode = 'SETS' | 'GAMES_TARGET' | 'TIME';
 
+// Config di punteggio applicata a una fase (girone o finale). In GAMES_TARGET,
+// gamesPerSet porta il "game da raggiungere"; in TIME gamesPerSet non è usato.
+export type ScoringConfig = {
+  scoringMode: ScoringMode;
+  setsPerMatch: number;
+  gamesPerSet: number;
+};
+
 export type MatchStatus =
   | 'SCHEDULED'
   | 'IN_PROGRESS'
@@ -46,6 +54,8 @@ export type TournamentRules = {
   scoringMode: ScoringMode;
   setsPerMatch: number;
   gamesPerSet: number;
+  // Override opzionale per la fase finale. Se assente, la fase finale usa le regole sopra (girone).
+  finalScoring?: ScoringConfig;
   allowDraws: boolean;
   tieBreakEnabled: boolean;
   superTieBreakEnabled: boolean;

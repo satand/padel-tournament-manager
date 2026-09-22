@@ -24,6 +24,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
     participantAId: match.participantAId,
     participantBId: match.participantBId,
     status: parsed.data.status,
+    phase: match.phase,
     sets: parsed.data.sets,
     winnerId: parsed.data.winnerId
   };

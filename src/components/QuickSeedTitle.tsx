@@ -91,9 +91,8 @@ export function QuickSeedTitle() {
           groupCount: groupCountFor(n),
           qualifiedPerGroup: 2,
           splitGoldSilver: true,
-          scoringMode: 'SETS',
-          maxSets: 1,
-          gamesPerSet: 6,
+          scoringMode: 'GAMES_TARGET',
+          targetGames: 16,
           finalStartRound: 'SF',
           mvpEnabled: true,
           mvpThroughPhase: 'FINAL'

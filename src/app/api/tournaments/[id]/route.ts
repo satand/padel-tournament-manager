@@ -33,18 +33,31 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (projSec != null) data.presentSlideSeconds = Math.min(120, Math.max(2, projSec));
 
   if (tournament.status === 'DRAFT') {
-    const structuralInt = ['gamesPerSet', 'targetGames', 'groupCount', 'qualifiedPerGroup'];
+    // Girone: solo "A target" o "A tempo" (il target è `targetGames`).
+    const structuralInt = ['targetGames', 'groupCount', 'qualifiedPerGroup'];
     for (const key of structuralInt) {
       const value = asInt(body[key]);
       if (value != null) data[key] = value;
     }
-    const maxSets = asInt(body.maxSets ?? body.setsPerMatch);
-    if (maxSets != null) {
-      data.maxSets = maxSets;
-      data.setsPerMatch = maxSets;
-    }
-    const scoringMode = pickEnum(body.scoringMode, ['SETS', 'GAMES_TARGET', 'TIME'] as const);
+    const scoringMode = pickEnum(body.scoringMode, ['GAMES_TARGET', 'TIME'] as const);
     if (scoringMode) data.scoringMode = scoringMode;
+
+    // Fase finale: override di punteggio indipendente (null/'' = eredita il girone).
+    if ('finalScoringMode' in body) {
+      const finalMode = pickEnum(body.finalScoringMode, ['SETS', 'GAMES_TARGET', 'TIME'] as const);
+      data.finalScoringMode = finalMode ?? null;
+      if (!finalMode) {
+        data.finalSetsPerMatch = null;
+        data.finalGamesPerSet = null;
+        data.finalTargetGames = null;
+      }
+    }
+    const finalSets = asInt(body.finalSetsPerMatch ?? body.finalMaxSets);
+    if (finalSets != null) data.finalSetsPerMatch = finalSets;
+    const finalGamesPerSet = asInt(body.finalGamesPerSet);
+    if (finalGamesPerSet != null) data.finalGamesPerSet = finalGamesPerSet;
+    const finalTargetGames = asInt(body.finalTargetGames);
+    if (finalTargetGames != null) data.finalTargetGames = finalTargetGames;
     const finalStartRound = pickEnum(body.finalStartRound, ['R16', 'R8', 'QF', 'SF', 'FINAL'] as const);
     if (finalStartRound) data.finalStartRound = finalStartRound;
     const mvpThroughPhase = pickEnum(body.mvpThroughPhase, ['GROUP', 'R16', 'R8', 'QF', 'SF', 'FINAL'] as const);

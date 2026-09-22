@@ -1,4 +1,5 @@
 import type { Match, Participant, RankingRow, TieBreakerKey, TournamentRules } from './types';
+import { rulesForPhase } from './scoring';
 
 const EPSILON = 0.000001;
 
@@ -16,7 +17,7 @@ export function calculateRanking(
 
   for (const match of matches) {
     if (!isScorableMatch(match)) continue;
-    applyMatchToStats(stats, match, rules);
+    applyMatchToStats(stats, match, rulesForPhase(rules, match.phase));
   }
 
   const rows = Object.values(stats).map((row) => finaliseStats(row));
@@ -151,7 +152,7 @@ function summariseMatch(match: Match, rules: TournamentRules): {
 
   if (match.status === 'WALKOVER') {
     const winner: 'A' | 'B' = match.winnerId === match.participantBId ? 'B' : 'A';
-    const sets = mode === 'SETS' ? rules.setsPerMatch : 0;
+    const sets = mode === 'SETS' ? rules.setsPerMatch : 1;
     const games = mode === 'SETS' ? rules.gamesPerSet : 0;
     return winner === 'A'
       ? { setsA: sets, setsB: 0, gamesA: games, gamesB: 0, winner, pointsA: rules.points.walkoverWin, pointsB: rules.points.walkoverLoss }
@@ -161,7 +162,7 @@ function summariseMatch(match: Match, rules: TournamentRules): {
   if (match.status === 'RETIRED') {
     const winner: 'A' | 'B' = match.winnerId === match.participantBId ? 'B' : 'A';
     const agg = aggregateGames(match);
-    const set = mode === 'SETS' ? 1 : 0;
+    const set = 1;
     return winner === 'A'
       ? { setsA: set, setsB: 0, gamesA: agg.gamesA, gamesB: agg.gamesB, winner, pointsA: rules.points.retiredWin, pointsB: rules.points.retiredLoss }
       : { setsA: 0, setsB: set, gamesA: agg.gamesA, gamesB: agg.gamesB, winner, pointsA: rules.points.retiredLoss, pointsB: rules.points.retiredWin };
@@ -169,7 +170,10 @@ function summariseMatch(match: Match, rules: TournamentRules): {
 
   if (mode === 'TIME') {
     const winner = byId();
-    return { setsA: 0, setsB: 0, gamesA: 0, gamesB: 0, winner, ...simplePoints(winner, rules) };
+    const { gamesA, gamesB } = aggregateGames(match);
+    const setsA = winner === 'A' ? 1 : 0;
+    const setsB = winner === 'B' ? 1 : 0;
+    return { setsA, setsB, gamesA, gamesB, winner, ...simplePoints(winner, rules) };
   }
 
   if (mode === 'GAMES_TARGET') {
@@ -178,7 +182,9 @@ function summariseMatch(match: Match, rules: TournamentRules): {
     if (gamesA > gamesB) winner = 'A';
     else if (gamesB > gamesA) winner = 'B';
     else winner = byId();
-    return { setsA: 0, setsB: 0, gamesA, gamesB, winner, ...simplePoints(winner, rules) };
+    const setsA = winner === 'A' ? 1 : 0;
+    const setsB = winner === 'B' ? 1 : 0;
+    return { setsA, setsB, gamesA, gamesB, winner, ...simplePoints(winner, rules) };
   }
 
   const setsA = match.sets.filter((set) => set.gamesA > set.gamesB).length;

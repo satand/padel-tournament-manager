@@ -145,6 +145,10 @@ model TournamentSettings {
   scoringMode            ScoringMode     @default(SETS)
   maxSets                Int             @default(1)
   targetGames            Int?
+  finalScoringMode       ScoringMode?
+  finalSetsPerMatch      Int?
+  finalGamesPerSet       Int?
+  finalTargetGames       Int?
   groupCount             Int?
   qualifiedPerGroup      Int             @default(2)
   finalStartRound        FinalStartRound @default(FINAL)

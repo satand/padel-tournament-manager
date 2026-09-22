@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Match, Participant, TournamentRules } from '@/lib/domain/types';
 import { validateMatchResult } from '@/lib/domain/validators';
+import { rulesForPhase } from '@/lib/domain/scoring';
 import { phaseLabel } from '@/lib/domain/labels';
 
 type MvpInfo = { matchId: string; playerId: string; rating: number; penalty?: number };
@@ -67,15 +68,14 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
   const isCompleted = ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(match.status);
   const canEdit = editable || (!!tournamentId && !!rules && isCompleted);
   const hasBoth = Boolean(match.participantAId && match.participantBId);
-  const mode = rules?.scoringMode ?? 'SETS';
-  const existingSet = match.sets[0];
-  const initialWinner: 'A' | 'B' | '' =
-    match.winnerId && match.winnerId === match.participantBId ? 'B' : match.winnerId && match.winnerId === match.participantAId ? 'A' : '';
-  const [open, setOpen] = useState(false);
-  const [gamesA, setGamesA] = useState(existingSet?.gamesA ?? 0);
-  const [gamesB, setGamesB] = useState(existingSet?.gamesB ?? 0);
-  const [winnerChoice, setWinnerChoice] = useState<'A' | 'B' | ''>(mode === 'TIME' ? initialWinner : '');
+  const eff = rules ? rulesForPhase(rules, match.phase) : null;
+  const mode = eff?.scoringMode ?? 'SETS';
+  const maxSets = eff?.setsPerMatch ?? 1;
   const existingMvp = matchMvp[0];
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<{ gamesA: number; gamesB: number }[]>(() =>
+    match.sets.length ? match.sets.map((s) => ({ gamesA: s.gamesA, gamesB: s.gamesB })) : [{ gamesA: 0, gamesB: 0 }]
+  );
   const [mvpPlayerId, setMvpPlayerId] = useState(existingMvp?.playerId ?? '');
   const [mvpRating, setMvpRating] = useState(existingMvp?.rating ?? 8);
   const [mvpPenalty, setMvpPenalty] = useState(existingMvp?.penalty ?? 0);
@@ -89,11 +89,21 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
     label: playerNameMap.get(pid) ?? pid,
   })));
 
-  const setsPayload = mode === 'TIME' ? [] : [{ setNumber: 1, gamesA, gamesB }];
-  const winnerId =
-    mode === 'TIME'
-      ? (winnerChoice === 'A' ? match.participantAId ?? undefined : winnerChoice === 'B' ? match.participantBId ?? undefined : undefined)
-      : (gamesA > gamesB ? match.participantAId ?? undefined : gamesB > gamesA ? match.participantBId ?? undefined : undefined);
+  const setsPayload = (mode === 'SETS' ? rows.filter((r) => r.gamesA > 0 || r.gamesB > 0) : rows.slice(0, 1)).map((r, i) => ({
+    setNumber: i + 1,
+    gamesA: r.gamesA,
+    gamesB: r.gamesB
+  }));
+  const winnerId = (() => {
+    if (mode === 'SETS') {
+      const sa = rows.filter((r) => r.gamesA > r.gamesB).length;
+      const sb = rows.filter((r) => r.gamesB > r.gamesA).length;
+      return sa > sb ? (match.participantAId ?? undefined) : sb > sa ? (match.participantBId ?? undefined) : undefined;
+    }
+    const a = rows[0]?.gamesA ?? 0;
+    const b = rows[0]?.gamesB ?? 0;
+    return a > b ? (match.participantAId ?? undefined) : b > a ? (match.participantBId ?? undefined) : undefined;
+  })();
   const preview: Match = rules ? { ...match, status: 'COMPLETED', sets: setsPayload, winnerId } : match;
   const issues = rules ? validateMatchResult(preview, rules) : [];
   const winnerDisplay =
@@ -125,9 +135,9 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
       }
       setMessage({
         type: 'success',
-        text: mode === 'TIME'
-          ? `Risultato salvato: vince ${winnerChoice === 'A' ? nameA : nameB}`
-          : `Risultato salvato: ${nameA} ${gamesA} - ${gamesB} ${nameB}`
+        text: mode === 'SETS'
+          ? `Risultato salvato: ${setsPayload.map((s) => `${s.gamesA}-${s.gamesB}`).join('  ')}`
+          : `Risultato salvato: ${nameA} ${rows[0]?.gamesA ?? 0} - ${rows[0]?.gamesB ?? 0} ${nameB}`
       });
       setOpen(false);
       router.refresh();
@@ -164,9 +174,7 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
             className="button secondary"
             style={{ padding: '6px 12px', fontSize: 13 }}
             onClick={() => {
-              setGamesA(existingSet?.gamesA ?? 0);
-              setGamesB(existingSet?.gamesB ?? 0);
-              setWinnerChoice(mode === 'TIME' ? initialWinner : '');
+              setRows(match.sets.length ? match.sets.map((s) => ({ gamesA: s.gamesA, gamesB: s.gamesB })) : [{ gamesA: 0, gamesB: 0 }]);
               setMvpPlayerId(existingMvp?.playerId ?? '');
               setMvpRating(existingMvp?.rating ?? 8);
               setMvpPenalty(existingMvp?.penalty ?? 0);
@@ -211,24 +219,35 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
       {open && rules && (
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 8 }}>
           <div className="form-grid">
-            {mode === 'TIME' ? (
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
-                <label>Coppia vincente</label>
-                <select value={winnerChoice} onChange={(e) => setWinnerChoice(e.target.value as 'A' | 'B' | '')}>
-                  <option value="">Seleziona…</option>
-                  <option value="A">{nameA}</option>
-                  <option value="B">{nameB}</option>
-                </select>
+            {mode === 'SETS' ? (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {rows.map((row, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ minWidth: 52, fontSize: 13, color: 'var(--muted)' }}>Set {idx + 1}</span>
+                      <input type="number" min={0} value={row.gamesA} onChange={(e) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, gamesA: Number(e.target.value) } : r)))} style={{ width: 80 }} />
+                      <span>–</span>
+                      <input type="number" min={0} value={row.gamesB} onChange={(e) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, gamesB: Number(e.target.value) } : r)))} style={{ width: 80 }} />
+                      {rows.length > 1 && (
+                        <button type="button" className="button secondary" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => setRows((prev) => prev.filter((_, i) => i !== idx))}>Rimuovi</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <button type="button" className="button secondary" style={{ padding: '4px 10px', fontSize: 12 }} disabled={rows.length >= maxSets} onClick={() => setRows((prev) => [...prev, { gamesA: 0, gamesB: 0 }])}>+ Aggiungi set</button>
+                  <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--muted)' }}>massimo {maxSets} set · vince chi ne porta a casa di più</span>
+                </div>
               </div>
             ) : (
               <>
                 <div className="field">
-                  <label>{mode === 'GAMES_TARGET' ? 'Punti ' : 'Game '}{nameA}</label>
-                  <input type="number" min={0} value={gamesA} onChange={(e) => setGamesA(Number(e.target.value))} />
+                  <label>{mode === 'GAMES_TARGET' ? `Game (target ${eff?.gamesPerSet ?? 0}) ` : 'Game '}{nameA}</label>
+                  <input type="number" min={0} value={rows[0]?.gamesA ?? 0} onChange={(e) => setRows((prev) => [{ ...(prev[0] ?? { gamesA: 0, gamesB: 0 }), gamesA: Number(e.target.value) }])} />
                 </div>
                 <div className="field">
-                  <label>{mode === 'GAMES_TARGET' ? 'Punti ' : 'Game '}{nameB}</label>
-                  <input type="number" min={0} value={gamesB} onChange={(e) => setGamesB(Number(e.target.value))} />
+                  <label>{mode === 'GAMES_TARGET' ? `Game (target ${eff?.gamesPerSet ?? 0}) ` : 'Game '}{nameB}</label>
+                  <input type="number" min={0} value={rows[0]?.gamesB ?? 0} onChange={(e) => setRows((prev) => [{ ...(prev[0] ?? { gamesA: 0, gamesB: 0 }), gamesB: Number(e.target.value) }])} />
                 </div>
               </>
             )}
@@ -254,7 +273,7 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
             </p>
           )}
           <div className="actions" style={{ marginTop: 10 }}>
-            <button className="button" disabled={issues.length > 0 || saving || (mode === 'TIME' ? !winnerChoice : (gamesA === 0 && gamesB === 0))} onClick={handleSave}>
+            <button className="button" disabled={issues.length > 0 || saving || !winnerId} onClick={handleSave}>
               {saving ? 'Salvataggio...' : 'Salva risultato'}
             </button>
             <button className="button secondary" onClick={() => { setOpen(false); setMessage(null); }}>

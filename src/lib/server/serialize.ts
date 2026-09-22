@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { defaultMVPSettings, defaultTournamentRules, type MVPSettings, type MVPStandingRow, type MVPVote, type Match as DomainMatch, type Participant, type Player, type TournamentRules } from '@/lib/domain/types';
+import { defaultMVPSettings, defaultTournamentRules, type MVPSettings, type MVPStandingRow, type MVPVote, type Match as DomainMatch, type Participant, type Player, type ScoringConfig, type TournamentRules } from '@/lib/domain/types';
 import { calculateMVPStandings, filterMatchesThroughPhase, type MvpThrough } from '@/lib/domain/mvp';
 
 export const tournamentInclude = {
@@ -16,6 +16,20 @@ export type TournamentWithIncludes = Prisma.TournamentGetPayload<{ include: type
 
 export function buildRules(settings: TournamentWithIncludes['settings']): TournamentRules {
   const scoringMode = (settings?.scoringMode ?? 'SETS') as TournamentRules['scoringMode'];
+
+  // Override di punteggio per la fase finale (dalle colonne final*); null = eredita il girone.
+  const finalMode = settings?.finalScoringMode as TournamentRules['scoringMode'] | null | undefined;
+  let finalScoring: ScoringConfig | undefined;
+  if (finalMode) {
+    finalScoring = {
+      scoringMode: finalMode,
+      setsPerMatch: finalMode === 'GAMES_TARGET' ? 1 : (settings?.finalSetsPerMatch ?? defaultTournamentRules.setsPerMatch),
+      gamesPerSet: finalMode === 'GAMES_TARGET'
+        ? (settings?.finalTargetGames ?? settings?.finalGamesPerSet ?? defaultTournamentRules.gamesPerSet)
+        : (settings?.finalGamesPerSet ?? defaultTournamentRules.gamesPerSet)
+    };
+  }
+
   return {
     ...defaultTournamentRules,
     scoringMode,
@@ -23,6 +37,7 @@ export function buildRules(settings: TournamentWithIncludes['settings']): Tourna
     gamesPerSet: scoringMode === 'GAMES_TARGET'
       ? (settings?.targetGames ?? settings?.gamesPerSet ?? defaultTournamentRules.gamesPerSet)
       : (settings?.gamesPerSet ?? defaultTournamentRules.gamesPerSet),
+    finalScoring,
     allowDraws: settings?.allowDraws ?? defaultTournamentRules.allowDraws,
     tieBreakEnabled: settings?.tieBreakEnabled ?? defaultTournamentRules.tieBreakEnabled,
     superTieBreakEnabled: settings?.superTieBreakEnabled ?? defaultTournamentRules.superTieBreakEnabled,

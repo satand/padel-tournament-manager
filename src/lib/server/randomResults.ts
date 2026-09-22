@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/server/db';
 import { validateMatchResult } from '@/lib/domain/validators';
+import { rulesForPhase } from '@/lib/domain/scoring';
 import { matchPhaseRank, mvpScopeThreshold, type MvpThrough } from '@/lib/domain/mvp';
 import type { Match, MatchSetScore, TournamentRules } from '@/lib/domain/types';
 
@@ -15,32 +16,35 @@ export function mvpAllowedForPhase(phase: string | null | undefined, through: Mv
   return matchPhaseRank(phase ?? undefined) <= mvpScopeThreshold(through);
 }
 
-// Genera un risultato COMPLETED valido per le regole di punteggio del torneo.
-export function buildRandomResult(matchId: string, aId: string, bId: string, rules: TournamentRules): { winnerId: string; sets: MatchSetScore[] } | null {
+// Genera un risultato COMPLETED valido per le regole di punteggio della fase della partita.
+export function buildRandomResult(matchId: string, aId: string, bId: string, rules: TournamentRules, phase?: string | null): { winnerId: string; sets: MatchSetScore[] } | null {
+  const r = rulesForPhase(rules, phase);
   const winnerIsA = Math.random() < 0.5;
   const winnerId = winnerIsA ? aId : bId;
-  const mode = rules.scoringMode ?? 'SETS';
-
-  if (mode === 'TIME') {
-    return { winnerId, sets: [] };
-  }
-
-  const target = rules.gamesPerSet;
+  const mode = r.scoringMode ?? 'SETS';
   let sets: MatchSetScore[] = [];
 
-  if (mode === 'GAMES_TARGET') {
-    const loser = randInt(0, Math.max(0, target - 1));
-    sets = [{ setNumber: 1, gamesA: winnerIsA ? target : loser, gamesB: winnerIsA ? loser : target }];
+  if (mode === 'TIME') {
+    // A tempo: tally di game con vincitore ai punti (mai pari).
+    const w = randInt(1, 20);
+    const l = randInt(0, w - 1);
+    sets = [{ setNumber: 1, gamesA: winnerIsA ? w : l, gamesB: winnerIsA ? l : w }];
   } else {
-    const winsNeeded = Math.floor(rules.setsPerMatch / 2) + 1;
-    const loserMax = Math.max(0, target - 2);
-    for (let s = 1; s <= winsNeeded; s += 1) {
-      const loser = randInt(0, loserMax);
-      sets.push({ setNumber: s, gamesA: winnerIsA ? target : loser, gamesB: winnerIsA ? loser : target });
+    const target = r.gamesPerSet;
+    if (mode === 'GAMES_TARGET') {
+      const loser = randInt(0, Math.max(0, target - 1));
+      sets = [{ setNumber: 1, gamesA: winnerIsA ? target : loser, gamesB: winnerIsA ? loser : target }];
+    } else {
+      const winsNeeded = Math.floor(r.setsPerMatch / 2) + 1;
+      const loserMax = Math.max(0, target - 2);
+      for (let s = 1; s <= winsNeeded; s += 1) {
+        const loser = randInt(0, loserMax);
+        sets.push({ setNumber: s, gamesA: winnerIsA ? target : loser, gamesB: winnerIsA ? loser : target });
+      }
     }
   }
 
-  const preview: Match = { id: matchId, participantAId: aId, participantBId: bId, status: 'COMPLETED', sets, winnerId };
+  const preview: Match = { id: matchId, participantAId: aId, participantBId: bId, status: 'COMPLETED', sets, winnerId, phase: phase ?? undefined };
   if (validateMatchResult(preview, rules).length > 0) return null;
 
   return { winnerId, sets };
@@ -68,7 +72,7 @@ type ApplyArgs = {
 
 // Completa una singola partita con esito casuale (+ MVP se nello scope). Ritorna true se completata.
 export async function applyRandomResult({ tournamentId, match, rules, playersMap, mvpEnabled, through }: ApplyArgs): Promise<boolean> {
-  const result = buildRandomResult(match.id, match.participantAId, match.participantBId, rules);
+  const result = buildRandomResult(match.id, match.participantAId, match.participantBId, rules, match.phase);
   if (!result) return false;
 
   const rawScore = { status: 'COMPLETED', sets: result.sets, winnerId: result.winnerId };

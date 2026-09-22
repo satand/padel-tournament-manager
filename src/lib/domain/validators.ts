@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Match, MatchSetScore, TournamentRules } from './types';
+import { rulesForPhase } from './scoring';
 
 export const resultSetSchema = z.object({
   setNumber: z.number().int().positive(),
@@ -43,42 +44,61 @@ export function validateMatchResult(match: Match, rules: TournamentRules): Valid
     issues.push({ field: 'participants', message: 'I due partecipanti della partita devono essere diversi.' });
   }
 
-  const mode = rules.scoringMode ?? 'SETS';
+  const r = rulesForPhase(rules, match.phase);
+  const mode = r.scoringMode ?? 'SETS';
+  const gamesA = match.sets.reduce((sum, s) => sum + s.gamesA, 0);
+  const gamesB = match.sets.reduce((sum, s) => sum + s.gamesB, 0);
+  const declaredWinner: 'A' | 'B' | '' =
+    match.winnerId && match.winnerId === match.participantBId ? 'B' : match.winnerId && match.winnerId === match.participantAId ? 'A' : '';
+
   if (match.status === 'COMPLETED') {
     if (mode === 'TIME') {
-      if (!rules.allowDraws && !match.winnerId) {
+      // A tempo: mai pareggio, si gioca un game in più finché una coppia è in vantaggio.
+      if (!match.winnerId) {
         issues.push({ field: 'winnerId', message: 'Nel formato a tempo è necessario indicare la coppia vincente.' });
       }
-    } else if (mode === 'GAMES_TARGET') {
-      if (match.sets.length === 0) issues.push({ field: 'sets', message: 'Inserire il punteggio in game.' });
-      let gamesA = 0;
-      let gamesB = 0;
-      for (const set of match.sets) {
-        if (set.gamesA > 0 && set.gamesA === set.gamesB) {
-          issues.push({ field: `sets.${set.setNumber}`, message: 'Il punteggio non può essere in parità.' });
-        }
-        gamesA += set.gamesA;
-        gamesB += set.gamesB;
+      if (gamesA === gamesB) {
+        issues.push({ field: 'sets', message: 'Nel formato a tempo non è ammesso il pareggio: gioca un game in più fino al vantaggio.' });
+      } else if (declaredWinner && declaredWinner !== (gamesA > gamesB ? 'A' : 'B')) {
+        issues.push({ field: 'winnerId', message: 'Il vincitore non coincide con il numero di game vinti.' });
       }
-      if (!rules.allowDraws && gamesA > 0 && gamesA === gamesB) {
-        issues.push({ field: 'sets', message: 'La partita non può terminare in parità.' });
+    } else if (mode === 'GAMES_TARGET') {
+      // A target: vince chi raggiunge per primo il numero di game prestabilito (punteggio esatto, avversario sotto).
+      if (match.sets.length === 0) issues.push({ field: 'sets', message: 'Inserire il punteggio in game.' });
+      const target = r.gamesPerSet;
+      if (gamesA === gamesB) {
+        issues.push({ field: 'sets', message: 'Il punteggio non può essere in parità.' });
+      } else {
+        const max = Math.max(gamesA, gamesB);
+        const min = Math.min(gamesA, gamesB);
+        if (max !== target) {
+          issues.push({ field: 'sets', message: `Il vincitore deve raggiungere esattamente ${target} game.` });
+        } else if (min >= target) {
+          issues.push({ field: 'sets', message: 'Punteggio non valido: un set non può terminare in parità.' });
+        }
+        if (declaredWinner && declaredWinner !== (gamesA > gamesB ? 'A' : 'B')) {
+          issues.push({ field: 'winnerId', message: 'Il vincitore non coincide con il target raggiunto.' });
+        }
       }
     } else {
+      // Set (al meglio di N): vince chi porta a casa winsNeeded set.
       if (match.sets.length === 0) issues.push({ field: 'sets', message: 'Inserire almeno un set per una partita conclusa.' });
-      if (match.sets.length > rules.setsPerMatch) {
-        issues.push({ field: 'sets', message: `Numero set superiore al massimo previsto: ${rules.setsPerMatch}.` });
+      if (match.sets.length > r.setsPerMatch) {
+        issues.push({ field: 'sets', message: `Numero set superiore al massimo previsto: ${r.setsPerMatch}.` });
       }
 
       for (const set of match.sets) {
-        issues.push(...validateSetScore(set, rules));
+        issues.push(...validateSetScore(set, r));
       }
 
       const setsA = match.sets.filter((set) => set.gamesA > set.gamesB).length;
       const setsB = match.sets.filter((set) => set.gamesB > set.gamesA).length;
-      const winsNeeded = Math.floor(rules.setsPerMatch / 2) + 1;
-      const hasWinner = setsA >= winsNeeded || setsB >= winsNeeded || rules.setsPerMatch === 1;
-      if (!rules.allowDraws && !hasWinner && setsA === setsB) {
-        issues.push({ field: 'sets', message: 'La partita non può terminare in pareggio con le regole attuali.' });
+      const winsNeeded = Math.floor(r.setsPerMatch / 2) + 1;
+      const hasWinner = setsA >= winsNeeded || setsB >= winsNeeded || r.setsPerMatch === 1;
+      if (!hasWinner) {
+        issues.push({ field: 'sets', message: `Nessuna coppia ha vinto il numero di set necessario (${winsNeeded}).` });
+      } else if (declaredWinner && declaredWinner !== (setsA > setsB ? 'A' : 'B')) {
+        issues.push({ field: 'winnerId', message: 'Il vincitore non coincide con i set vinti.' });
       }
     }
   }

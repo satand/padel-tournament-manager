@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   });
 
   const format = pick(body.format, ['ROUND_ROBIN', 'GROUPS_PLUS_FINALS'] as const, 'GROUPS_PLUS_FINALS');
-  const scoringMode = pick(body.scoringMode, ['SETS', 'GAMES_TARGET', 'TIME'] as const, 'SETS');
+  const scoringMode = pick(body.scoringMode, ['GAMES_TARGET', 'TIME'] as const, 'GAMES_TARGET');
   const finalStartRound = pick(body.finalStartRound, ['R16', 'R8', 'QF', 'SF', 'FINAL'] as const, 'FINAL');
   const mvpThroughPhase = pick(body.mvpThroughPhase, ['GROUP', 'R16', 'R8', 'QF', 'SF', 'FINAL'] as const, 'FINAL');
 
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
           maxSets: num(body.setsPerMatch ?? body.maxSets, defaultTournamentRules.setsPerMatch),
           gamesPerSet: num(body.gamesPerSet, defaultTournamentRules.gamesPerSet),
           scoringMode,
-          targetGames: body.targetGames != null ? num(body.targetGames, 0) : null,
+          targetGames: body.targetGames != null ? num(body.targetGames, 0) : (scoringMode === 'GAMES_TARGET' ? 21 : null),
           matchDurationMinutes: num(body.matchDurationMinutes, 30),
           minRestMinutes: num(body.minRestMinutes, 15),
           maxMatchesPerPlayerDay: num(body.maxMatchesPerPlayerDay, 6),

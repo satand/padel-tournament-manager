@@ -78,11 +78,6 @@ export function TournamentWizard() {
           qualifiedPerGroup: data.qualifiedPerGroup,
           finalStartRound: data.finalStartRound,
           splitGoldSilver: data.splitGoldSilver,
-          scoringMode: data.scoringMode,
-          maxSets: data.maxSets,
-          setsPerMatch: data.maxSets,
-          gamesPerSet: data.gamesPerSet,
-          targetGames: data.scoringMode === 'GAMES_TARGET' ? data.targetGames : undefined,
           pointsWin: data.pointsWin,
           pointsLoss: data.pointsLoss,
           mvpEnabled: data.mvpEnabled,
@@ -146,30 +141,12 @@ export function TournamentWizard() {
       </div>
 
       <div style={sectionStyle}>
-        <h3>Modalità punteggio</h3>
+        <h3>Punti in classifica</h3>
         <div className="form-grid">
-          <div className="field"><label>Modalità</label>
-            <select value={data.scoringMode} onChange={(e) => update('scoringMode', e.target.value)}>
-              <option value="SETS">Set (al meglio di N)</option>
-              <option value="GAMES_TARGET">A target (primo a N game)</option>
-              <option value="TIME">A tempo</option>
-            </select>
-          </div>
-          {data.scoringMode === 'SETS' && (
-            <>
-              <div className="field"><label>Set al meglio di</label><input type="number" min={1} max={3} value={data.maxSets} onChange={(e) => update('maxSets', Number(e.target.value))} /></div>
-              <div className="field"><label>Game per set</label><input type="number" min={1} value={data.gamesPerSet} onChange={(e) => update('gamesPerSet', Number(e.target.value))} /></div>
-            </>
-          )}
-          {data.scoringMode === 'GAMES_TARGET' && (
-            <div className="field"><label>Game da raggiungere</label><input type="number" min={1} value={data.targetGames} onChange={(e) => update('targetGames', Number(e.target.value))} /></div>
-          )}
-          {data.scoringMode === 'TIME' && (
-            <div className="field"><label>Durata partita (min)</label><input type="number" min={1} value={data.matchDurationMinutes} onChange={(e) => update('matchDurationMinutes', Number(e.target.value))} /></div>
-          )}
           <div className="field"><label>Punti vittoria</label><input type="number" value={data.pointsWin} onChange={(e) => update('pointsWin', Number(e.target.value))} /></div>
           <div className="field"><label>Punti sconfitta</label><input type="number" value={data.pointsLoss} onChange={(e) => update('pointsLoss', Number(e.target.value))} /></div>
         </div>
+        <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>La <strong>modalità di punteggio</strong> (giri e fase finale) si imposta nella pagina di <strong>amministrazione</strong> del torneo, prima di generare il calendario.</p>
       </div>
 
       <div style={sectionStyle}>
