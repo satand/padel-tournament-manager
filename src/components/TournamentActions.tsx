@@ -334,28 +334,33 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
           <div className="field">
             <label>Data inizio</label>
             {status === 'DRAFT' ? (
-              <input type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-            ) : (
-              <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 10, background: '#f8fafc', fontSize: 14 }}>
-                {startsAt ? new Date(startsAt).toLocaleString('it-IT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Non impostata'}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input type="datetime-local" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ flex: '1 1 220px', minWidth: 0 }} />
+                <button className="button secondary" disabled={savingDate} onClick={saveDate} style={{ flexShrink: 0 }}>{savingDate ? 'Salvataggio...' : 'Salva data'}</button>
               </div>
+            ) : (
+              <>
+                <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 10, background: '#f8fafc', fontSize: 14 }}>
+                  {startsAt ? new Date(startsAt).toLocaleString('it-IT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Non impostata'}
+                </div>
+                <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>Modificabile solo quando il torneo è in bozza.</p>
+              </>
             )}
           </div>
         </div>
-        {status === 'DRAFT' ? (
-          <div className="actions"><button className="button secondary" disabled={savingDate} onClick={saveDate}>{savingDate ? 'Salvataggio...' : 'Salva data'}</button></div>
-        ) : (
-          <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>Modificabile solo quando il torneo è in bozza.</p>
-        )}
       </div>
 
       <div style={{ marginTop: 20 }}>
         <h3>Schermo di proiezione</h3>
         <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Secondi di permanenza di ogni slide nel carosello della schermata di proiezione (2–120).</p>
         <div className="form-grid">
-          <div className="field"><label>Cambio automatico slide (secondi)</label><input type="number" min={2} max={120} value={presentSlideSeconds} onChange={(e) => setPresentSlideSeconds(e.target.value === '' ? '' : Number(e.target.value))} style={inputStyle} /></div>
+          <div className="field"><label>Cambio automatico slide (secondi)</label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input type="number" min={2} max={120} value={presentSlideSeconds} onChange={(e) => setPresentSlideSeconds(e.target.value === '' ? '' : Number(e.target.value))} style={{ ...inputStyle, flex: '1 1 140px', minWidth: 0 }} />
+              <button className="button secondary" disabled={savingProj} onClick={saveProiezione} style={{ flexShrink: 0 }}>{savingProj ? 'Salvataggio...' : 'Salva proiezione'}</button>
+            </div>
+          </div>
         </div>
-        <div className="actions"><button className="button secondary" disabled={savingProj} onClick={saveProiezione}>{savingProj ? 'Salvataggio...' : 'Salva proiezione'}</button></div>
       </div>
 
       <div className="grid grid-2">
