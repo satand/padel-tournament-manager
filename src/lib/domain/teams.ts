@@ -12,8 +12,12 @@ export function formatPlayerName(player: Pick<Player, 'firstName' | 'lastName'>)
   return `${player.firstName ?? ''} ${player.lastName ?? ''}`.trim();
 }
 
-export function composeTeamDisplayName(teamName: string | undefined | null, playerNames: string[]): string {
-  const trimmed = (teamName ?? '').trim();
-  if (trimmed) return trimmed;
-  return playerNames.map((n) => n.trim()).filter(Boolean).join(' / ');
+// Cognome del giocatore: usa il cognome, in fallback il nome (se inserito un solo token).
+export function playerSurname(player: Pick<Player, 'firstName' | 'lastName'>): string {
+  return ((player.lastName ?? '').trim() || (player.firstName ?? '').trim());
+}
+
+// Nome squadra: i soli cognomi dei due giocatori, es. "Rossi / Bianchi".
+export function composeTeamDisplayName(surnames: Array<string | null | undefined>): string {
+  return surnames.map((s) => (s ?? '').trim()).filter(Boolean).join(' / ');
 }

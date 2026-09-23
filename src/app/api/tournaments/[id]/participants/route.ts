@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/server/db';
 import { coupleSchema, couplesPayloadSchema } from '@/lib/domain/validators';
-import { composeTeamDisplayName, parsePlayerName } from '@/lib/domain/teams';
+import { composeTeamDisplayName, parsePlayerName, playerSurname } from '@/lib/domain/teams';
 
 function roundLevel(level: number | undefined): number | null {
   if (level == null || Number.isNaN(level)) return null;
@@ -30,9 +30,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   for (const couple of parsed.data.couples) {
     const p1 = parsePlayerName(couple.player1);
     const p2 = parsePlayerName(couple.player2);
-    const name1 = `${p1.firstName} ${p1.lastName}`.trim();
-    const name2 = `${p2.firstName} ${p2.lastName}`.trim();
-    const displayName = composeTeamDisplayName(couple.teamName, [name1, name2]) || 'Coppia';
+    const displayName = composeTeamDisplayName([playerSurname(p1), playerSurname(p2)]) || 'Coppia';
     const level = roundLevel(couple.level);
 
     const playerA = await prisma.player.create({ data: { tournamentId: id, firstName: p1.firstName, lastName: p1.lastName } });
@@ -74,9 +72,7 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
   const p1 = parsePlayerName(couple.data.player1);
   const p2 = parsePlayerName(couple.data.player2);
-  const name1 = `${p1.firstName} ${p1.lastName}`.trim();
-  const name2 = `${p2.firstName} ${p2.lastName}`.trim();
-  const displayName = composeTeamDisplayName(couple.data.teamName, [name1, name2]) || 'Coppia';
+  const displayName = composeTeamDisplayName([playerSurname(p1), playerSurname(p2)]) || 'Coppia';
   const level = roundLevel(couple.data.level);
 
   const memberPlayerIds = participant.team.members.map((m) => m.playerId);

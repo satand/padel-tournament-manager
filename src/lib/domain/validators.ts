@@ -22,7 +22,6 @@ export const resultPayloadSchema = z.object({
 });
 
 export const coupleSchema = z.object({
-  teamName: z.string().trim().max(120).optional(),
   player1: z.string().trim().min(1, 'Giocatore 1 obbligatorio'),
   player2: z.string().trim().min(1, 'Giocatore 2 obbligatorio'),
   level: z.number().min(0).max(10).default(1)

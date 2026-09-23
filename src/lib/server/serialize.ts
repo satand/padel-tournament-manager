@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { defaultMVPSettings, defaultTournamentRules, type MVPSettings, type MVPStandingRow, type MVPVote, type Match as DomainMatch, type Participant, type Player, type ScoringConfig, type TournamentRules } from '@/lib/domain/types';
 import { calculateMVPStandings, filterMatchesThroughPhase, type MvpThrough } from '@/lib/domain/mvp';
+import { composeTeamDisplayName, playerSurname } from '@/lib/domain/teams';
 
 export const tournamentInclude = {
   settings: true,
@@ -68,18 +69,23 @@ export function toDomainContext(tournament: TournamentWithIncludes): TournamentC
   for (const team of tournament.teams) {
     teamPlayerMap.set(team.id, team.members.map((m) => m.playerId));
   }
+  const surnameByPlayerId = new Map(tournament.players.map((pl) => [pl.id, playerSurname({ firstName: pl.firstName, lastName: pl.lastName })]));
 
-  const participants: Participant[] = tournament.participants.map((p) => ({
-    id: p.id,
-    displayName: p.displayName,
-    type: 'TEAM',
-    level: p.level ?? undefined,
-    playerIds: teamPlayerMap.get(p.teamId) ?? [],
-    seed: p.seed ?? undefined,
-    manualOrder: p.initialRank ?? undefined,
-    isWithdrawn: p.isWithdrawn,
-    groupId: p.groupId ?? undefined
-  }));
+  const participants: Participant[] = tournament.participants.map((p) => {
+    const playerIds = teamPlayerMap.get(p.teamId) ?? [];
+    const displayName = composeTeamDisplayName(playerIds.map((id) => surnameByPlayerId.get(id) ?? '')) || p.displayName;
+    return {
+      id: p.id,
+      displayName,
+      type: 'TEAM',
+      level: p.level ?? undefined,
+      playerIds,
+      seed: p.seed ?? undefined,
+      manualOrder: p.initialRank ?? undefined,
+      isWithdrawn: p.isWithdrawn,
+      groupId: p.groupId ?? undefined
+    };
+  });
 
   const players: Player[] = tournament.players.map((p) => ({
     id: p.id,

@@ -20,8 +20,8 @@ type Props = {
   groupMatchesDone: number;
 };
 
-type CoupleForm = { participantId: string | null; teamName: string; player1: string; player2: string; level: string };
-const emptyCouple: CoupleForm = { participantId: null, teamName: '', player1: '', player2: '', level: '1' };
+type CoupleForm = { participantId: string | null; player1: string; player2: string; level: string };
+const emptyCouple: CoupleForm = { participantId: null, player1: '', player2: '', level: '1' };
 
 function toInputDate(iso: string | null): string {
   if (!iso) return '';
@@ -87,7 +87,6 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
   function startEdit(p: ParticipantRow) {
     setCouple({
       participantId: p.id,
-      teamName: p.displayName.includes(' / ') ? '' : p.displayName,
       player1: p.players[0]?.name ?? '',
       player2: p.players[1]?.name ?? '',
       level: p.level != null ? String(p.level) : '1'
@@ -107,7 +106,6 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
     setBusy(true);
     setMessage(null);
     const payload = {
-      teamName: couple.teamName.trim() || undefined,
       player1: couple.player1.trim(),
       player2: couple.player2.trim(),
       level: levelNum
@@ -327,10 +325,6 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         <div>
           <h3>{editing ? 'Modifica coppia' : 'Aggiungi coppia'}</h3>
           <div className="form-grid">
-            <div className="field" style={{ gridColumn: '1 / -1' }}>
-              <label>Nome squadra (facoltativo)</label>
-              <input placeholder="Se vuoto: Giocatore1 / Giocatore2" value={couple.teamName} onChange={(e) => setCouple({ ...couple, teamName: e.target.value })} />
-            </div>
             <div className="field">
               <label>Giocatore 1</label>
               <input placeholder="Nome e cognome" value={couple.player1} onChange={(e) => setCouple({ ...couple, player1: e.target.value })} />
@@ -344,6 +338,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
               <input type="number" min={0} max={10} step={0.1} required value={couple.level} onChange={(e) => setCouple({ ...couple, level: e.target.value })} />
             </div>
           </div>
+          <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>Il nome della squadra è generato automaticamente dai cognomi (es. "Rossi / Bianchi").</p>
           <div className="actions">
             <button className="button" disabled={busy} onClick={saveCouple}>{busy ? 'Salvataggio...' : editing ? 'Salva modifiche' : 'Aggiungi coppia'}</button>
             {editing && <button className="button secondary" onClick={() => setCouple(emptyCouple)}>Annulla modifica</button>}

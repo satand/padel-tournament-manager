@@ -1,19 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { composeTeamDisplayName, parsePlayerName } from '@/lib/domain/teams';
+import { composeTeamDisplayName, parsePlayerName, playerSurname } from '@/lib/domain/teams';
 
 describe('teams — parsing e nome coppia', () => {
-  it('seplica nome e cognome', () => {
+  it('separa nome e cognome', () => {
     expect(parsePlayerName('Mario Rossi')).toEqual({ firstName: 'Mario', lastName: 'Rossi' });
     expect(parsePlayerName('Luca')).toEqual({ firstName: 'Luca', lastName: '' });
     expect(parsePlayerName('Maria Grazia Bianchi')).toEqual({ firstName: 'Maria', lastName: 'Grazia Bianchi' });
   });
 
-  it('usa il nome squadra se fornito', () => {
-    expect(composeTeamDisplayName('Gli Invincibili', ['Mario Rossi', 'Luca Bianchi'])).toBe('Gli Invincibili');
+  it('playerSurname usa il cognome, con fallback sul nome', () => {
+    expect(playerSurname({ firstName: 'Mario', lastName: 'Rossi' })).toBe('Rossi');
+    expect(playerSurname({ firstName: 'Luca', lastName: '' })).toBe('Luca');
+    expect(playerSurname({ firstName: 'Maria', lastName: 'Grazia Bianchi' })).toBe('Grazia Bianchi');
   });
 
-  it('compone il nome dai giocatori quando assente', () => {
-    expect(composeTeamDisplayName('', ['Mario Rossi', 'Luca Bianchi'])).toBe('Mario Rossi / Luca Bianchi');
-    expect(composeTeamDisplayName(undefined, ['Mario Rossi', 'Luca Bianchi'])).toBe('Mario Rossi / Luca Bianchi');
+  it('compone il nome squadra dai soli cognomi', () => {
+    expect(composeTeamDisplayName(['Rossi', 'Bianchi'])).toBe('Rossi / Bianchi');
+    expect(composeTeamDisplayName(['Rossi', ''])).toBe('Rossi');
+    expect(composeTeamDisplayName([null, 'B'])).toBe('B');
   });
 });
