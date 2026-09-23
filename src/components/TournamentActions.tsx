@@ -99,6 +99,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
   });
 
   const finalsEditable = groupsConcluded && finalsCount === 0;
+  const rosterLocked = matchesCount > 0;
   const gsAllowed = qualifiedCount >= 4;
   const gsMode = struct.splitGoldSilver && gsAllowed;
   const goldCount = gsAllowed ? Math.min(qualifiedCount - 2, Math.max(2, Math.trunc(struct.qualifiedForGold) || 2)) : qualifiedCount;
@@ -359,26 +360,34 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
 
       <div className="grid grid-2">
         <div>
-          <h3>{editing ? 'Modifica coppia' : 'Aggiungi coppia'}</h3>
-          <div className="form-grid">
-            <div className="field">
-              <label>Giocatore 1</label>
-              <input placeholder="Nome e cognome" value={couple.player1} onChange={(e) => setCouple({ ...couple, player1: e.target.value })} />
+          <h3>{rosterLocked ? 'Coppie' : editing ? 'Modifica coppia' : 'Aggiungi coppia'}</h3>
+          {rosterLocked ? (
+            <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, background: '#f8fafc' }}>
+              <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>Anagrafica bloccata: il calendario è già stato generato ({matchesCount} partite). Le squadre iscritte non sono più modificabili. Crea un nuovo torneo per un elenco diverso.</p>
             </div>
-            <div className="field">
-              <label>Giocatore 2</label>
-              <input placeholder="Nome e cognome" value={couple.player2} onChange={(e) => setCouple({ ...couple, player2: e.target.value })} />
-            </div>
-            <div className="field">
-              <label>Livello (obbligatorio, 0–10, 1 decimale)</label>
-              <input type="number" min={0} max={10} step={0.1} required value={couple.level} onChange={(e) => setCouple({ ...couple, level: e.target.value })} />
-            </div>
-          </div>
-          <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>Il nome della squadra è generato automaticamente dai cognomi (es. "Rossi / Bianchi").</p>
-          <div className="actions">
-            <button className="button" disabled={busy} onClick={saveCouple}>{busy ? 'Salvataggio...' : editing ? 'Salva modifiche' : 'Aggiungi coppia'}</button>
-            {editing && <button className="button secondary" onClick={() => setCouple(emptyCouple)}>Annulla modifica</button>}
-          </div>
+          ) : (
+            <>
+              <div className="form-grid">
+                <div className="field">
+                  <label>Giocatore 1</label>
+                  <input placeholder="Nome e cognome" value={couple.player1} onChange={(e) => setCouple({ ...couple, player1: e.target.value })} />
+                </div>
+                <div className="field">
+                  <label>Giocatore 2</label>
+                  <input placeholder="Nome e cognome" value={couple.player2} onChange={(e) => setCouple({ ...couple, player2: e.target.value })} />
+                </div>
+                <div className="field">
+                  <label>Livello (obbligatorio, 0–10, 1 decimale)</label>
+                  <input type="number" min={0} max={10} step={0.1} required value={couple.level} onChange={(e) => setCouple({ ...couple, level: e.target.value })} />
+                </div>
+              </div>
+              <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>Il nome della squadra è generato automaticamente dai cognomi (es. "Rossi / Bianchi").</p>
+              <div className="actions">
+                <button className="button" disabled={busy} onClick={saveCouple}>{busy ? 'Salvataggio...' : editing ? 'Salva modifiche' : 'Aggiungi coppia'}</button>
+                {editing && <button className="button secondary" onClick={() => setCouple(emptyCouple)}>Annulla modifica</button>}
+              </div>
+            </>
+          )}
         </div>
 
         <div>
@@ -391,20 +400,23 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
                   <strong>{p.displayName}</strong>
                   {p.level != null && <span style={{ color: 'var(--muted)' }}> · liv. {p.level}</span>}
                 </span>
-                <span style={{ display: 'inline-flex', gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => startEdit(p)} style={{ border: '1px solid var(--border)', background: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Modifica</button>
-                  {confirmDeleteId === p.id ? (
-                    <>
-                      <button onClick={() => deleteCouple(p.id)} disabled={busy} style={{ border: 'none', background: 'var(--danger)', color: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Conferma</button>
-                      <button onClick={() => setConfirmDeleteId(null)} style={{ border: '1px solid var(--border)', background: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer' }}>No</button>
-                    </>
-                  ) : (
-                    <button onClick={() => setConfirmDeleteId(p.id)} style={{ border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '3px 8px' }}>Elimina</button>
-                  )}
-                </span>
+                {!rosterLocked && (
+                  <span style={{ display: 'inline-flex', gap: 4, flexShrink: 0 }}>
+                    <button onClick={() => startEdit(p)} style={{ border: '1px solid var(--border)', background: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Modifica</button>
+                    {confirmDeleteId === p.id ? (
+                      <>
+                        <button onClick={() => deleteCouple(p.id)} disabled={busy} style={{ border: 'none', background: 'var(--danger)', color: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Conferma</button>
+                        <button onClick={() => setConfirmDeleteId(null)} style={{ border: '1px solid var(--border)', background: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer' }}>No</button>
+                      </>
+                    ) : (
+                      <button onClick={() => setConfirmDeleteId(p.id)} style={{ border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '3px 8px' }}>Elimina</button>
+                    )}
+                  </span>
+                )}
               </div>
             ))}
           </div>
+          {rosterLocked && <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>Sola lettura: le squadre sono già assegnate al calendario.</p>}
         </div>
       </div>
 

@@ -8,19 +8,19 @@ function roundLevel(level: number | undefined): number | null {
   return Math.round(level * 10) / 10;
 }
 
-async function playedCount(participantId: string): Promise<number> {
-  return prisma.match.count({
-    where: {
-      OR: [{ participantAId: participantId }, { participantBId: participantId }],
-      status: { in: ['COMPLETED', 'WALKOVER', 'RETIRED'] }
-    }
-  });
+async function matchCount(tournamentId: string): Promise<number> {
+  return prisma.match.count({ where: { tournamentId } });
 }
+
+const ROSTER_LOCKED = 'Calendario già generato: l\'anagrafica squadre è bloccata. Crea un nuovo torneo per un elenco diverso.';
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const tournament = await prisma.tournament.findUnique({ where: { id } });
   if (!tournament) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
+  if ((await matchCount(id)) > 0) {
+    return NextResponse.json({ error: ROSTER_LOCKED }, { status: 400 });
+  }
 
   const body = await request.json().catch(() => ({}));
   const parsed = couplesPayloadSchema.safeParse(body);
@@ -66,8 +66,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   });
   if (!participant) return NextResponse.json({ error: 'Partecipante non trovato.' }, { status: 404 });
 
-  if ((await playedCount(participantId)) > 0) {
-    return NextResponse.json({ error: 'Coppia già scesa in campo: non modificabile. Elimina le partite o rigenera il calendario.' }, { status: 400 });
+  if ((await matchCount(id)) > 0) {
+    return NextResponse.json({ error: ROSTER_LOCKED }, { status: 400 });
   }
 
   const p1 = parsePlayerName(couple.data.player1);
@@ -99,8 +99,8 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
   const participant = await prisma.tournamentParticipant.findFirst({ where: { id: participantId, tournamentId: id } });
   if (!participant) return NextResponse.json({ error: 'Partecipante non trovato.' }, { status: 404 });
 
-  if ((await playedCount(participantId)) > 0) {
-    return NextResponse.json({ error: 'Non puoi eliminare una coppia con partite già giocate. Rigenera prima il calendario.' }, { status: 400 });
+  if ((await matchCount(id)) > 0) {
+    return NextResponse.json({ error: ROSTER_LOCKED }, { status: 400 });
   }
 
   await prisma.match.deleteMany({ where: { tournamentId: id, OR: [{ participantAId: participantId }, { participantBId: participantId }] } });
