@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext, computeMvp, type TournamentContext } from '@/lib/server/serialize';
-import { demoTournament } from '@/lib/demo/demo-data';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
 import { RankingTable } from '@/components/RankingTable';
@@ -13,32 +12,13 @@ import { RandomizeFinalResultsEasterEgg } from '@/components/RandomizeFinalResul
 import { TournamentActions } from '@/components/TournamentActions';
 import { DeleteTournamentButton } from '@/components/DeleteTournamentButton';
 
-async function loadContext(id: string): Promise<(TournamentContext & { isDemo: boolean }) | null> {
-  if (id === 'demo-tournament') {
-    return {
-      id: demoTournament.id,
-      name: demoTournament.name,
-      format: demoTournament.format,
-      status: 'RUNNING',
-      startsAt: '2026-07-04T09:00:00.000Z',
-      rules: demoTournament.rules,
-      settings: null,
-      participants: demoTournament.participants,
-      players: demoTournament.players,
-      matches: demoTournament.matches,
-      mvpVotes: demoTournament.mvpVotes,
-      courts: demoTournament.courts,
-      groups: demoTournament.groups,
-      isDemo: true
-    };
-  }
-
+async function loadContext(id: string): Promise<TournamentContext | null> {
   const tournament = await prisma.tournament.findFirst({
     where: { OR: [{ slug: id }, { id }] },
     include: tournamentInclude
   });
   if (!tournament) return null;
-  return { ...toDomainContext(tournament), isDemo: false };
+  return toDomainContext(tournament);
 }
 
 export default async function TournamentDashboardPage({ params }: { params: Promise<{ id: string }> }) {
@@ -86,7 +66,6 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
           <div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <span className="badge">{data.format}</span>
-              {data.isDemo && <span className="badge" style={{ background: '#fef3c7', color: '#92400e' }}>DEMO</span>}
             </div>
             <h1>{data.name}</h1>
             {data.startsAt && (
@@ -95,21 +74,19 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
               </p>
             )}
           </div>
-          {!data.isDemo && <DeleteTournamentButton tournamentId={data.id} tournamentName={data.name} redirectTo="/tournaments" />}
+          <DeleteTournamentButton tournamentId={data.id} tournamentName={data.name} redirectTo="/tournaments" />
         </div>
         <p className="lead">Dashboard organizzatore: coppie, calendari, classifiche per girone e MVP provvisorio.</p>
         <div className="actions">
-          <Link className="button secondary" href={`/public/${data.isDemo ? 'demo-tournament' : data.id}`} target="_blank">Apri pagina pubblica</Link>
-          {!data.isDemo && <Link className="button secondary" href={`/present/${data.id}`} target="_blank">Schermo di proiezione</Link>}
+          <Link className="button secondary" href={`/public/${data.id}`} target="_blank">Apri pagina pubblica</Link>
+          <Link className="button secondary" href={`/present/${data.id}`} target="_blank">Schermo di proiezione</Link>
         </div>
-        {!data.isDemo && (
-          <div className="actions" style={{ marginTop: 6 }}>
-            <span style={{ color: 'var(--muted)', fontSize: 13, alignSelf: 'center' }}>Esporta CSV:</span>
-            <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=calendar`} download>Calendario</a>
-            <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=${data.groups.length > 0 ? 'groups' : 'ranking'}`} download>Classifiche</a>
-            <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=mvp`} download>MVP</a>
-          </div>
-        )}
+        <div className="actions" style={{ marginTop: 6 }}>
+          <span style={{ color: 'var(--muted)', fontSize: 13, alignSelf: 'center' }}>Esporta CSV:</span>
+          <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=calendar`} download>Calendario</a>
+          <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=${data.groups.length > 0 ? 'groups' : 'ranking'}`} download>Classifiche</a>
+          <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=mvp`} download>MVP</a>
+        </div>
         <div className="grid grid-4">
           <div className="stat"><div className="stat-label">Coppie</div><div className="stat-value">{data.participants.length}</div></div>
           <div className="stat"><div className="stat-label">Partite</div><div className="stat-value">{data.matches.length}</div></div>
@@ -118,7 +95,7 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
         </div>
       </section>
 
-      {!data.isDemo && data.status !== 'COMPLETED' && (
+      {data.status !== 'COMPLETED' && (
         <TournamentActions
           tournamentId={data.id}
           status={data.status}
@@ -162,28 +139,20 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
 
       {scheduledMatches.length > 0 && (
         <section className="panel">
-          {data.isDemo ? (
-            <h2>Prossime partite ({scheduledMatches.length})</h2>
-          ) : (
-            <RandomizeGroupResultsEasterEgg tournamentId={data.id} count={scheduledMatches.length} />
-          )}
-          <MatchList matches={scheduledMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={!data.isDemo} tournamentId={data.id} rules={data.rules} />
+          <RandomizeGroupResultsEasterEgg tournamentId={data.id} count={scheduledMatches.length} />
+          <MatchList matches={scheduledMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable tournamentId={data.id} rules={data.rules} />
         </section>
       )}
       {completedMatches.length > 0 && (
         <section className="panel">
           <h2>Risultati ({completedMatches.length})</h2>
-          <MatchList matches={completedMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} mvpVotes={data.mvpVotes.map((v) => ({ matchId: v.matchId, playerId: v.playerId, rating: v.rating, penalty: v.penalty }))} tournamentId={data.isDemo ? undefined : data.id} rules={data.isDemo ? undefined : data.rules} />
+          <MatchList matches={completedMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} mvpVotes={data.mvpVotes.map((v) => ({ matchId: v.matchId, playerId: v.playerId, rating: v.rating, penalty: v.penalty }))} tournamentId={data.id} rules={data.rules} />
         </section>
       )}
       {finalMatches.length > 0 && (
         <section className="panel">
-          {data.isDemo ? (
-            <h2>Fase finale ({finalMatches.length})</h2>
-          ) : (
-            <RandomizeFinalResultsEasterEgg tournamentId={data.id} count={finalMatches.length} />
-          )}
-          <MatchList matches={finalMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={!data.isDemo} tournamentId={data.id} rules={data.rules} />
+          <RandomizeFinalResultsEasterEgg tournamentId={data.id} count={finalMatches.length} />
+          <MatchList matches={finalMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable tournamentId={data.id} rules={data.rules} />
         </section>
       )}
       {otherMatches.length > 0 && (

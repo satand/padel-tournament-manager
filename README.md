@@ -2,10 +2,7 @@
 
 Applicazione web responsive per creare, gestire e consultare tornei di padel da desktop, smartphone e tablet.
 
-Il progetto supporta due modalità d'uso:
-
-1. **Demo senza database**, utile per esplorare interfaccia e flussi principali.
-2. **Modalità completa con PostgreSQL**, per creare tornei reali, salvare risultati e generare calendari persistenti.
+L'applicazione richiede **PostgreSQL**: tornei, iscritti, risultati e calendari sono creati e salvati persistentemente nel database.
 
 ## Avvio con Docker (consigliato, anche senza esperienza)
 
@@ -63,7 +60,7 @@ docker\logs.bat
 ```
 (nei log cerca "Ready"; `Ctrl+C` per uscire dai log).
 
-> **Prima volta su una nuova macchina?** Il database parte **vuoto** (il volume non eredita i tornei di altri PC). La **demo** resta comunque visibile; per popolare subito apri `/tournaments` e fai **triplo click** sul titolo "I tuoi tornei" (quick-seed).
+> **Prima volta su una nuova macchina?** Il database parte **vuoto** (il volume non eredita i tornei di altri PC): crea un torneo da `http://localhost:3000/new-tournament`, oppure apri `/tournaments` e fai **triplo click** sul titolo "I tuoi tornei" (quick-seed) per popularlo subito.
 
 **Problemi tipici su Windows**
 - **Porta 5432 già usata** (es. un PostgreSQL installato in locale): in `docker/docker-compose.yml` cambia `"5432:5432"` in `"5433:5432"` (l'app dentro Compose usa comunque `db:5432`).
@@ -97,7 +94,7 @@ flowchart TD
 ### Componenti principali
 
 - `src/app/layout.tsx`: shell globale, navigazione e metadati applicativi.
-- `src/app/page.tsx`: home demo con dati statici.
+- `src/app/page.tsx`: home con presentazione e collegamenti principali.
 - `src/app/new-tournament/page.tsx`: entry point del wizard di creazione torneo.
 - `src/components/TournamentWizard.tsx`: wizard guidato che crea il torneo via API.
 - `src/app/tournaments/page.tsx`: elenco dei tornei salvati nel database.
@@ -107,7 +104,6 @@ flowchart TD
 - `src/lib/domain/*`: motore torneo puro per classifiche, MVP, validazione e scheduling.
 - `prisma/schema.prisma`: schema relazionale PostgreSQL.
 - `src/lib/server/*`: Prisma client e audit log.
-- `src/lib/demo/demo-data.ts`: dataset demo senza database.
 
 ## Funzionalità incluse
 
@@ -143,44 +139,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 Nota: i valori non devono essere racchiusi tra virgolette. Il formato `KEY=VALUE` senza virgolette funziona sia con Next.js (dotenv) sia con `docker run --env-file` / `docker compose env_file`, che non rimuovono le virgolette dai valori.
 
-Per la demo senza database puoi comunque tenere il file `.env` pronto, ma le funzionalità che scrivono sul database richiedono una `DATABASE_URL` valida.
-
-## Avvio rapido in demo
-
-La demo serve per navigare l'interfaccia e testare i flussi principali senza preparare subito PostgreSQL.
-
-```bash
-cp .env.example .env
-npm install
-npm run prisma:generate
-npm run dev
-```
-
-Poi apri:
-
-```text
-http://localhost:3000
-```
-
-### Cosa funziona in demo
-
-- home e navigazione;
-- dashboard demo;
-- pagina pubblica demo;
-- visualizzazione classifiche e calendari demo;
-- consultazione dei risultati già presenti nei dati statici.
-
-### Cosa non è una vera demo write-enabled
-
-Le operazioni di scrittura reale, come:
-
-- creazione tornei;
-- aggiunta partecipanti;
-- generazione calendario;
-- salvataggio risultati;
-- eliminazione tornei;
-
-richiedono il database PostgreSQL e il backend attivo.
+Il file `.env` deve contenere un `DATABASE_URL` valido: l'app non include dati demo e ogni funzionalità (lettura e scrittura) richiede il database PostgreSQL attivo. Per avviare tutto (app + database) in un colpo solo usa Docker (`npm run docker:start`), altrimenti segui la sezione "Avvio completo con PostgreSQL locale".
 
 ## Avvio completo con PostgreSQL locale
 
@@ -222,13 +181,7 @@ npm run prisma:generate
 npm run prisma:migrate
 ```
 
-### 5. Seed opzionale
-
-```bash
-npm run prisma:seed
-```
-
-### 6. Avvia l'app
+### 5. Avvia l'app
 
 ```bash
 npm run dev
@@ -243,7 +196,6 @@ npm run dev
 - `npm test` - esecuzione test Vitest.
 - `npm run prisma:generate` - genera Prisma Client.
 - `npm run prisma:migrate` - crea/applica migrazioni in sviluppo.
-- `npm run prisma:seed` - carica i dati demo nel database.
 - `npm run docker:start` - avvia app + database con Docker Compose (equivalente a `docker/start.sh`).
 - `npm run docker:stop` - ferma l'applicazione lasciando intatti i dati (equivalente a `docker/stop.sh`).
 - `npm run docker:rebuild` - ricostruisce e riavvia solo l'app dopo una modifica, senza toccare il database (equivalente a `docker/rebuild.sh`).
@@ -345,29 +297,20 @@ In produzione devi prevedere:
 docker compose --env-file .env -f docker/docker-compose.yml up -d --build
 ```
 
-Se vuoi eseguire il seed dopo il primo avvio:
-
-```bash
-docker compose --env-file .env -f docker/docker-compose.yml run --rm app npm run prisma:seed
-```
-
 ## Struttura del progetto
 
 ```text
 src/app                  Pagine, layout e API Next.js
 src/components           Componenti UI e wizard
 src/lib/domain           Motore torneo testabile
-src/lib/demo             Dati demo statici
 src/lib/server           Prisma client e audit log
 src/tests                Test unitari
 prisma/schema.prisma     Schema PostgreSQL
 public                   Asset statici e icona
-scripts/seed.ts          Seed demo per PostgreSQL
 ```
 
 ## Note utili
 
-- La home demo e le pagine demo pubbliche sono consultabili anche senza database.
 - Le funzioni operative complete richiedono PostgreSQL.
 - Le regole di ranking, scheduling e MVP vivono nel dominio TypeScript e sono progettate per essere testate indipendentemente dalla UI.
 

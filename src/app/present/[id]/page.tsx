@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext, computeMvp, type TournamentContext } from '@/lib/server/serialize';
-import { demoTournament } from '@/lib/demo/demo-data';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
 import { phaseLabel, matchStatusLabel } from '@/lib/domain/labels';
@@ -11,23 +10,6 @@ import { PresentCarousel, type PresentScreen, type PresentSlide } from '@/compon
 export const dynamic = 'force-dynamic';
 
 async function loadPresentData(id: string): Promise<TournamentContext | null> {
-  if (id === 'demo-tournament') {
-    return {
-      id: demoTournament.id,
-      name: demoTournament.name,
-      format: demoTournament.format,
-      status: 'RUNNING',
-      startsAt: '2026-07-04T09:00:00.000Z',
-      rules: demoTournament.rules,
-      settings: null,
-      participants: demoTournament.participants,
-      players: demoTournament.players,
-      matches: demoTournament.matches,
-      mvpVotes: demoTournament.mvpVotes,
-      courts: demoTournament.courts,
-      groups: demoTournament.groups
-    };
-  }
   const tournament = await prisma.tournament.findFirst({
     where: { OR: [{ id }, { slug: id }, { publicToken: id }] },
     include: tournamentInclude

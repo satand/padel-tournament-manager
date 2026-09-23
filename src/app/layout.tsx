@@ -27,7 +27,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="nav" aria-label="Navigazione principale">
               <Link href="/tournaments">Tornei</Link>
               <Link href="/new-tournament">Nuovo torneo</Link>
-              <Link href="/tournaments/demo-tournament">Demo</Link>
             </nav>
           </header>
           {children}

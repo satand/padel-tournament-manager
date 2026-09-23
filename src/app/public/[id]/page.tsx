@@ -1,39 +1,19 @@
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext, computeMvp, type TournamentContext } from '@/lib/server/serialize';
-import { demoTournament } from '@/lib/demo/demo-data';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
 import { RankingTable } from '@/components/RankingTable';
 import { MVPTable } from '@/components/MVPTable';
 import { MatchList } from '@/components/MatchList';
 
-async function loadPublicData(id: string): Promise<(TournamentContext & { isDemo: boolean }) | null> {
-  if (id === 'demo-tournament') {
-    return {
-      id: demoTournament.id,
-      name: demoTournament.name,
-      format: demoTournament.format,
-      status: 'RUNNING',
-      startsAt: '2026-07-04T09:00:00.000Z',
-      rules: demoTournament.rules,
-      settings: null,
-      participants: demoTournament.participants,
-      players: demoTournament.players,
-      matches: demoTournament.matches,
-      mvpVotes: demoTournament.mvpVotes,
-      courts: demoTournament.courts,
-      groups: demoTournament.groups,
-      isDemo: true
-    };
-  }
-
+async function loadPublicData(id: string): Promise<TournamentContext | null> {
   const tournament = await prisma.tournament.findFirst({
     where: { OR: [{ id }, { slug: id }, { publicToken: id }] },
     include: tournamentInclude
   });
   if (!tournament || !tournament.publicEnabled) return null;
-  return { ...toDomainContext(tournament), isDemo: false };
+  return toDomainContext(tournament);
 }
 
 export default async function PublicTournamentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -56,7 +36,6 @@ export default async function PublicTournamentPage({ params }: { params: Promise
       <section className="panel">
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="badge">Pagina pubblica</span>
-          {data.isDemo && <span className="badge" style={{ background: '#fef3c7', color: '#92400e' }}>DEMO</span>}
         </div>
         <h1>{data.name}</h1>
         <p className="lead">Consultazione: calendario, risultati e classifiche aggiornate. Nessuna funzione amministrativa.</p>

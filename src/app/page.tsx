@@ -13,7 +13,6 @@ export default function HomePage() {
         </p>
         <div className="actions">
           <Link className="button" href="/new-tournament">Crea torneo</Link>
-          <Link className="button secondary" href="/tournaments/demo-tournament">Apri demo</Link>
         </div>
       </section>
     </main>

@@ -6,10 +6,9 @@
 2. Il backend è integrato in Next.js tramite Route Handlers; la logica torneo resta separata in moduli TypeScript puri.
 3. Il database target è PostgreSQL via Prisma ORM.
 4. L'autenticazione è predisposta per email/password, magic link o OAuth; nel repository è inclusa la struttura RBAC, non un provider completo.
-5. La demo usa dati statici e calcoli live per permettere test immediati senza database.
-6. I formati più complessi, come mexicano e king/queen of the court, sono rappresentati da motori estendibili: la versione base include round robin, knockout, americano semplificato, scheduler e funzione king/queen per promozione/retrocessione.
-7. Ogni regola importante è salvata come JSON configurabile in `TournamentSettings`, `RankingRule`, `TieBreakerRule`, `mvpWeights` e `scoreRules`.
-8. Export PDF/XLSX è previsto in architettura; la base include export CSV puro. PDF/XLSX possono essere aggiunti con librerie server-side.
+5. I formati più complessi, come mexicano e king/queen of the court, sono rappresentati da motori estendibili: la versione base include round robin, knockout, americano semplificato, scheduler e funzione king/queen per promozione/retrocessione.
+6. Ogni regola importante è salvata come JSON configurabile in `TournamentSettings`, `RankingRule`, `TieBreakerRule`, `mvpWeights` e `scoreRules`.
+7. Export PDF/XLSX è previsto in architettura; la base include export CSV puro. PDF/XLSX possono essere aggiunti con librerie server-side.
 
 ## 2. Analisi requisiti
 

@@ -21,7 +21,6 @@ export default async function TournamentsListPage() {
         <p className="lead">Tutti i tornei creati. Seleziona un torneo per aprire la dashboard organizzatore.</p>
         <div className="actions">
           <Link className="button" href="/new-tournament">Nuovo torneo</Link>
-          <Link className="button secondary" href="/tournaments/demo-tournament">Apri demo</Link>
         </div>
       </section>
 
