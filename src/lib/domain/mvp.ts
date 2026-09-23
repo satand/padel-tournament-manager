@@ -45,8 +45,7 @@ export function calculateMVPStandings(
   participants: Participant[],
   matches: Match[],
   votes: MVPVote[],
-  settings: MVPSettings,
-  tournamentWinnerPlayerIds: string[] = []
+  settings: MVPSettings
 ): MVPStandingRow[] {
   if (!settings.enabled) return [];
 
@@ -63,14 +62,9 @@ export function calculateMVPStandings(
     const mvpCount = playerVotes.filter((vote) => vote.electedMvp).length;
     const weightedRating = weightedAverage(playerVotes.map((vote) => ({ value: vote.rating, weight: vote.weight * (vote.phaseWeight ?? 1) })));
     const avgRating = simpleAverage(playerVotes.map((vote) => vote.rating));
-    const bonusFromPhase = calculatePhaseBonus(playerVotes, matches, settings);
-    const winBonus = tournamentWinnerPlayerIds.includes(player.id) ? settings.tournamentWinBonus : 0;
     const penalties = settings.penaltiesEnabled ? playerVotes.reduce((sum, vote) => sum + (vote.penalty ?? 0), 0) : 0;
     const played = matchesPlayed[player.id] ?? 0;
-    const eligible = played >= settings.minMatches && !player.isWithdrawn;
-    const totalScore = eligible
-      ? round(mvpCount * settings.mvpWeight + weightedRating * settings.ratingWeight + bonusFromPhase + winBonus - penalties, 3)
-      : 0;
+    const totalScore = round(mvpCount * settings.mvpWeight + weightedRating * settings.ratingWeight - penalties, 3);
 
     return {
       playerId: player.id,
@@ -80,16 +74,13 @@ export function calculateMVPStandings(
       mvpCount,
       avgRating: round(avgRating, 2),
       weightedRating: round(weightedRating, 2),
-      finalBonus: round(bonusFromPhase + winBonus, 2),
       penalties: round(penalties, 2),
-      totalScore,
-      eligible
+      totalScore
     };
   });
 
   return rows
     .sort((a, b) => {
-      if (a.eligible !== b.eligible) return a.eligible ? -1 : 1;
       if (b.totalScore !== a.totalScore) return b.totalScore - a.totalScore;
       if (b.mvpCount !== a.mvpCount) return b.mvpCount - a.mvpCount;
       if (b.weightedRating !== a.weightedRating) return b.weightedRating - a.weightedRating;
@@ -142,17 +133,6 @@ function countMatchesPlayedByPlayer(participants: Participant[], matches: Match[
     ).length;
   }
   return played;
-}
-
-function calculatePhaseBonus(votes: MVPVote[], matches: Match[], settings: MVPSettings): number {
-  const matchById = new Map(matches.map((match) => [match.id, match]));
-  return votes.reduce((sum, vote) => {
-    if (!vote.electedMvp) return sum;
-    const phase = matchById.get(vote.matchId)?.phase?.toLowerCase() ?? '';
-    if (phase.includes('semi')) return sum + settings.semifinalBonus;
-    if (phase.includes('final')) return sum + settings.finalBonus;
-    return sum;
-  }, 0);
 }
 
 function simpleAverage(values: number[]): number {

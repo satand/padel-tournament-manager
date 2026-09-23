@@ -16,7 +16,7 @@ const matches: Match[] = [
 ];
 
 describe('mvp engine', () => {
-  it('calcola miglior giocatore con voti, MVP e bonus finale', () => {
+  it('calcola miglior giocatore con voti e media ponderata', () => {
     const votes: MVPVote[] = [
       { id: 'v1', matchId: 'm1', playerId: 'p1', rating: 8, weight: 1, source: 'organizer', electedMvp: true },
       { id: 'v2', matchId: 'm2', playerId: 'p1', rating: 9, weight: 1, source: 'organizer', electedMvp: true },
@@ -25,7 +25,6 @@ describe('mvp engine', () => {
     const standings = calculateMVPStandings(players, participants, matches, votes, defaultMVPSettings);
     expect(standings[0].playerId).toBe('p1');
     expect(standings[0].mvpCount).toBe(2);
-    expect(standings[0].finalBonus).toBe(3);
   });
 });
 

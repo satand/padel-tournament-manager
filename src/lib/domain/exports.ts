@@ -64,7 +64,7 @@ export function matchesToCsv(matches: Match[], names?: Map<string, string>): str
 }
 
 export function mvpToCsv(rows: MVPStandingRow[]): string {
-  const header = ['Posizione', 'Giocatore', 'Partite', 'MVP', 'Media voto', 'Voto ponderato', 'Bonus', 'Penalità', 'Totale', 'Elegibile'];
-  const lines = rows.map((row) => [row.position, row.displayName, row.matchesPlayed, row.mvpCount, row.avgRating, row.weightedRating, row.finalBonus, row.penalties, row.totalScore, row.eligible].map(cell).join(','));
+  const header = ['Posizione', 'Giocatore', 'Partite', 'MVP', 'Media voto', 'Voto ponderato', 'Penalità', 'Totale'];
+  const lines = rows.map((row) => [row.position, row.displayName, row.matchesPlayed, row.mvpCount, row.avgRating, row.weightedRating, row.penalties, row.totalScore].map(cell).join(','));
   return [header.join(','), ...lines].join('\n');
 }

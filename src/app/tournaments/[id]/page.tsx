@@ -67,6 +67,20 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
   const finalsCompleted = finalMatches.length > 0 && finalMatches.every((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
   const editing = !locked;
   const groupDisplay = [...scheduledMatches, ...completedMatches];
+  const mvpScopeProps = { mvpEnabled: data.settings?.mvpEnabled ?? true, mvpThroughPhase: data.settings?.mvpThroughPhase ?? 'FINAL' };
+  const participantNames = new Map(data.participants.map((p) => [p.id, p.displayName]));
+  const bracketWinner = (bracket: 'GOLD' | 'SILVER' | null): string | null => {
+    const fin = finalMatches.find((m) => (m.bracket ?? null) === bracket && m.phase === 'final');
+    if (fin?.winnerId && ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(fin.status)) return participantNames.get(fin.winnerId) ?? fin.winnerId;
+    return null;
+  };
+  const winners: { label: string; name: string }[] = [];
+  const goldWinner = bracketWinner('GOLD');
+  const silverWinner = bracketWinner('SILVER');
+  const singleWinner = bracketWinner(null);
+  if (goldWinner) winners.push({ label: 'Tabellone Gold', name: goldWinner });
+  if (silverWinner) winners.push({ label: 'Tabellone Silver', name: silverWinner });
+  if (singleWinner) winners.push({ label: 'Tabellone', name: singleWinner });
 
   return (
     <main className="grid">
@@ -85,6 +99,18 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
           </div>
           <DeleteTournamentButton tournamentId={data.id} tournamentName={data.name} redirectTo="/tournaments" />
         </div>
+        {locked && winners.length > 0 && (
+          <div style={{ marginTop: 14, padding: '12px 16px', borderRadius: 12, background: '#fffbeb', border: '1px solid #fcd34d', display: 'flex', flexWrap: 'wrap', gap: '6px 20px', alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, color: '#92400e', fontSize: 15 }}>🏆 {winners.length > 1 ? 'Vincitori fase finale' : 'Campione'}</span>
+            {winners.length > 1
+              ? winners.map((w) => (
+                  <span key={w.label} style={{ fontSize: 14 }}>
+                    <span style={{ color: 'var(--muted)', fontWeight: 600 }}>{w.label}:</span> <strong>{w.name}</strong>
+                  </span>
+                ))
+              : <span style={{ fontSize: 15, fontWeight: 700 }}>{winners[0].name}</span>}
+          </div>
+        )}
         <p className="lead">Dashboard organizzatore: coppie, calendari, classifiche per girone e MVP.</p>
         <div className="actions">
           <Link className="button secondary" href={`/public/${data.id}`} target="_blank">Apri pagina pubblica</Link>
@@ -149,7 +175,7 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
       {groupDisplay.length > 0 && (
         <section className="panel">
           <RandomizeGroupResultsEasterEgg tournamentId={data.id} count={groupDisplay.length} remaining={scheduledMatches.length} />
-          <MatchList matches={groupDisplay} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={editing} mvpVotes={data.mvpVotes.map((v) => ({ matchId: v.matchId, playerId: v.playerId, rating: v.rating, penalty: v.penalty }))} tournamentId={editing ? data.id : undefined} rules={editing ? data.rules : undefined} />
+          <MatchList matches={groupDisplay} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={editing} mvpVotes={data.mvpVotes.map((v) => ({ matchId: v.matchId, playerId: v.playerId, rating: v.rating, penalty: v.penalty }))} tournamentId={editing ? data.id : undefined} rules={editing ? data.rules : undefined} {...mvpScopeProps} />
         </section>
       )}
       {finalMatches.length > 0 && (
@@ -158,7 +184,7 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
           {finalGroups.map(({ bracket, matches }) => (
             <div key={bracket ?? 'single'}>
               <h3 style={{ marginTop: 14 }}>{bracket ? `Tabellone ${bracketLabel(bracket)}` : 'Tabellone'}</h3>
-              <MatchList matches={matches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={editing} tournamentId={editing ? data.id : undefined} rules={editing ? data.rules : undefined} showTime={false} />
+              <MatchList matches={matches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={editing} tournamentId={editing ? data.id : undefined} rules={editing ? data.rules : undefined} showTime={false} {...mvpScopeProps} />
             </div>
           ))}
         </section>

@@ -6,6 +6,7 @@ import type { Match, Participant, TournamentRules } from '@/lib/domain/types';
 import { validateMatchResult } from '@/lib/domain/validators';
 import { rulesForPhase } from '@/lib/domain/scoring';
 import { phaseLabel, bracketLabel } from '@/lib/domain/labels';
+import { matchPhaseRank, mvpScopeThreshold, type MvpThrough } from '@/lib/domain/mvp';
 
 type MvpInfo = { matchId: string; playerId: string; rating: number; penalty?: number };
 
@@ -20,9 +21,11 @@ type Props = {
   rules?: TournamentRules;
   mvpVotes?: MvpInfo[];
   showTime?: boolean;
+  mvpEnabled?: boolean;
+  mvpThroughPhase?: string;
 };
 
-export function MatchList({ matches, participants, players = [], courtNames = {}, groupNames = {}, editable = false, tournamentId, rules, mvpVotes = [], showTime = true }: Props) {
+export function MatchList({ matches, participants, players = [], courtNames = {}, groupNames = {}, editable = false, tournamentId, rules, mvpVotes = [], showTime = true, mvpEnabled = true, mvpThroughPhase = 'FINAL' }: Props) {
   const name = new Map(participants.map((p) => [p.id, p.displayName]));
   const playerNameMap = new Map(players.map((p) => [p.id, p.displayName]));
   return (
@@ -44,6 +47,8 @@ export function MatchList({ matches, participants, players = [], courtNames = {}
             players={players}
             matchMvp={matchMvp.map((v) => ({ ...v, playerName: playerNameMap.get(v.playerId) ?? v.playerId }))}
             showTime={showTime}
+            mvpEnabled={mvpEnabled}
+            mvpThroughPhase={mvpThroughPhase}
           />
         );
       })}
@@ -64,12 +69,15 @@ type CardProps = {
   players: { id: string; displayName: string }[];
   matchMvp: { playerId: string; playerName: string; rating: number; penalty?: number }[];
   showTime: boolean;
+  mvpEnabled: boolean;
+  mvpThroughPhase: string;
 };
 
-function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, tournamentId, rules, participants, players, matchMvp, showTime }: CardProps) {
+function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, tournamentId, rules, participants, players, matchMvp, showTime, mvpEnabled, mvpThroughPhase }: CardProps) {
   const router = useRouter();
   const isCompleted = ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(match.status);
   const canEdit = editable || (!!tournamentId && !!rules && isCompleted);
+  const mvpInScope = mvpEnabled && matchPhaseRank(match.phase) <= mvpScopeThreshold(mvpThroughPhase as MvpThrough);
   const hasBoth = Boolean(match.participantAId && match.participantBId);
   const eff = rules ? rulesForPhase(rules, match.phase) : null;
   const mode = eff?.scoringMode ?? 'SETS';
@@ -124,9 +132,9 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
           status: 'COMPLETED',
           sets: setsPayload,
           winnerId,
-          mvpPlayerId: mvpPlayerId || undefined,
-          mvpRating: mvpPlayerId ? mvpRating : undefined,
-          mvpPenalty: mvpPlayerId && mvpPenalty > 0 ? mvpPenalty : undefined,
+          mvpPlayerId: mvpInScope && mvpPlayerId ? mvpPlayerId : undefined,
+          mvpRating: mvpInScope && mvpPlayerId ? mvpRating : undefined,
+          mvpPenalty: mvpInScope && mvpPlayerId && mvpPenalty > 0 ? mvpPenalty : undefined,
         }),
       });
       if (!res.ok) {
@@ -255,21 +263,25 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
                 </div>
               </>
             )}
-            <div className="field">
-              <label>MVP partita</label>
-              <select value={mvpPlayerId} onChange={(e) => setMvpPlayerId(e.target.value)}>
-                <option value="">Non assegnato</option>
-                {matchPlayers.map((opt) => <option key={opt.playerId} value={opt.playerId}>{opt.label}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label>Voto MVP</label>
-              <input type="number" min={1} max={10} step={0.1} value={mvpRating} onChange={(e) => setMvpRating(Number(e.target.value))} />
-            </div>
-            <div className="field">
-              <label>Penalità MVP</label>
-              <input type="number" min={0} max={10} step={0.5} value={mvpPenalty} onChange={(e) => setMvpPenalty(Number(e.target.value))} />
-            </div>
+            {mvpInScope && (
+              <>
+                <div className="field">
+                  <label>MVP partita</label>
+                  <select value={mvpPlayerId} onChange={(e) => setMvpPlayerId(e.target.value)}>
+                    <option value="">Non assegnato</option>
+                    {matchPlayers.map((opt) => <option key={opt.playerId} value={opt.playerId}>{opt.label}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Voto MVP</label>
+                  <input type="number" min={1} max={10} step={0.1} value={mvpRating} onChange={(e) => setMvpRating(Number(e.target.value))} />
+                </div>
+                <div className="field">
+                  <label>Penalità MVP</label>
+                  <input type="number" min={0} max={10} step={0.5} value={mvpPenalty} onChange={(e) => setMvpPenalty(Number(e.target.value))} />
+                </div>
+              </>
+            )}
           </div>
           {issues.length > 0 && (
             <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 8 }}>

@@ -148,12 +148,8 @@ export type MVPVote = {
 
 export type MVPSettings = {
   enabled: boolean;
-  minMatches: number;
   mvpWeight: number;
   ratingWeight: number;
-  semifinalBonus: number;
-  finalBonus: number;
-  tournamentWinBonus: number;
   penaltiesEnabled: boolean;
 };
 
@@ -165,10 +161,8 @@ export type MVPStandingRow = {
   mvpCount: number;
   avgRating: number;
   weightedRating: number;
-  finalBonus: number;
   penalties: number;
   totalScore: number;
-  eligible: boolean;
 };
 
 export const defaultTournamentRules: TournamentRules = {
@@ -213,11 +207,7 @@ export const defaultTournamentRules: TournamentRules = {
 
 export const defaultMVPSettings: MVPSettings = {
   enabled: true,
-  minMatches: 2,
   mvpWeight: 5,
   ratingWeight: 1,
-  semifinalBonus: 2,
-  finalBonus: 3,
-  tournamentWinBonus: 5,
   penaltiesEnabled: true
 };

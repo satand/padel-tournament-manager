@@ -167,16 +167,6 @@ export function computeMvp(ctx: TournamentContext): { rows: MVPStandingRow[]; th
   const allowed = new Set(scoped.map((m) => m.id));
   const votes = ctx.mvpVotes.filter((v) => allowed.has(v.matchId));
 
-  let winnerPlayerIds: string[] = [];
-  if (through === 'FINAL') {
-    const decided = ctx.matches
-      .filter((m) => m.phase === 'final' && (m.bracket === 'GOLD' || m.bracket === null || m.bracket === undefined))
-      .find((m) => m.winnerId && ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
-    if (decided?.winnerId) {
-      winnerPlayerIds = ctx.participants.find((p) => p.id === decided.winnerId)?.playerIds ?? [];
-    }
-  }
-
-  const rows = calculateMVPStandings(ctx.players, ctx.participants, scoped, votes, buildMVPSettings(ctx.settings), winnerPlayerIds);
+  const rows = calculateMVPStandings(ctx.players, ctx.participants, scoped, votes, buildMVPSettings(ctx.settings));
   return { rows, through };
 }
