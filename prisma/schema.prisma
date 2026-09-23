@@ -152,6 +152,9 @@ model TournamentSettings {
   groupCount             Int?
   qualifiedPerGroup      Int             @default(2)
   finalStartRound        FinalStartRound @default(FINAL)
+  qualifiedForGold       Int?
+  finalStartRoundGold    FinalStartRound?
+  finalStartRoundSilver  FinalStartRound?
   splitGoldSilver        Boolean         @default(false)
   mvpThroughPhase        MvpPhase        @default(FINAL)
   presentSlideSeconds    Int?

@@ -192,9 +192,10 @@ export type FinalBracketMatch = {
 
 // Costruisce un tabellone a eliminazione con riferimenti genitore (per la propagazione
 // dei vincenti) invece dei segnaposto testuali. Gli slot liberi restano "da definire".
-export function buildFinalBracket(entrants: Participant[], bracket: 'GOLD' | 'SILVER' | null = null): FinalBracketMatch[] {
+export function buildFinalBracket(entrants: Participant[], bracket: 'GOLD' | 'SILVER' | null = null, sizeArg?: number): FinalBracketMatch[] {
   const players = entrants.filter((e) => e && e.id);
-  const size = nextPowerOfTwo(Math.max(2, players.length));
+  const auto = nextPowerOfTwo(Math.max(2, players.length));
+  const size = sizeArg && sizeArg >= players.length ? nextPowerOfTwo(sizeArg) : auto;
   const byes = size - players.length;
   const slots: (Participant | null)[] = [...players, ...Array.from({ length: byes }, () => null)];
   const pairs: [Participant | null, Participant | null][] = [];

@@ -72,6 +72,12 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
   const playersForMatch = data.players.map((p) => ({ id: p.id, displayName: p.displayName ?? `${p.firstName} ${p.lastName}` }));
   const showGroups = data.groups.length > 0;
   const groupMatchesDone = groupOnly.filter((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status)).length;
+  const groupsConcluded = groupOnly.length > 0 && groupMatchesDone === groupOnly.length;
+  const qualifiedPerGroup = data.settings?.qualifiedPerGroup ?? 2;
+  const qualifiedCount = data.groups.reduce((sum, g) => {
+    const size = data.participants.filter((p) => p.groupId === g.id && !p.isWithdrawn).length;
+    return sum + Math.min(qualifiedPerGroup, size);
+  }, 0);
 
   return (
     <main className="grid">
@@ -124,6 +130,8 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
           finalsCount={finalMatches.length}
           groupMatchesTotal={groupOnly.length}
           groupMatchesDone={groupMatchesDone}
+          groupsConcluded={groupsConcluded}
+          qualifiedCount={qualifiedCount}
         />
       )}
 

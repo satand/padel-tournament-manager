@@ -20,6 +20,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!tournament) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
   if (!tournament.settings) return NextResponse.json({ error: 'Impostazioni non trovate.' }, { status: 404 });
 
+  // La fase finale e' configurabile solo a gironi conclusi e prima di generare i tabelloni.
+  const phaseStatus = await prisma.match.findMany({ where: { tournamentId: id }, select: { phase: true, status: true } });
+  const groupPhase = phaseStatus.filter((m) => m.phase === 'group');
+  const groupDone = groupPhase.length > 0 && groupPhase.every((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
+  const finalsCount = phaseStatus.filter((m) => m.phase !== 'group').length;
+  const finalsEditable = groupDone && finalsCount === 0;
+
   const data: Record<string, unknown> = {};
   let startsAt: Date | null | undefined; // undefined = campo non fornito
 
@@ -42,27 +49,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const scoringMode = pickEnum(body.scoringMode, ['GAMES_TARGET', 'TIME'] as const);
     if (scoringMode) data.scoringMode = scoringMode;
 
-    // Fase finale: override di punteggio indipendente (null/'' = eredita il girone).
-    if ('finalScoringMode' in body) {
-      const finalMode = pickEnum(body.finalScoringMode, ['SETS', 'GAMES_TARGET', 'TIME'] as const);
-      data.finalScoringMode = finalMode ?? null;
-      if (!finalMode) {
-        data.finalSetsPerMatch = null;
-        data.finalGamesPerSet = null;
-        data.finalTargetGames = null;
-      }
-    }
-    const finalSets = asInt(body.finalSetsPerMatch ?? body.finalMaxSets);
-    if (finalSets != null) data.finalSetsPerMatch = finalSets;
-    const finalGamesPerSet = asInt(body.finalGamesPerSet);
-    if (finalGamesPerSet != null) data.finalGamesPerSet = finalGamesPerSet;
-    const finalTargetGames = asInt(body.finalTargetGames);
-    if (finalTargetGames != null) data.finalTargetGames = finalTargetGames;
-    const finalStartRound = pickEnum(body.finalStartRound, ['R16', 'R8', 'QF', 'SF', 'FINAL'] as const);
-    if (finalStartRound) data.finalStartRound = finalStartRound;
     const mvpThroughPhase = pickEnum(body.mvpThroughPhase, ['GROUP', 'R16', 'R8', 'QF', 'SF', 'FINAL'] as const);
     if (mvpThroughPhase) data.mvpThroughPhase = mvpThroughPhase;
-    for (const key of ['splitGoldSilver', 'mvpEnabled', 'allowDraws'] as const) {
+    for (const key of ['mvpEnabled', 'allowDraws'] as const) {
       if (typeof body[key] === 'boolean') data[key] = body[key];
     }
 
@@ -80,6 +69,41 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if ('startsAt' in body) {
       const raw = body.startsAt;
       startsAt = typeof raw === 'string' && !Number.isNaN(Date.parse(raw)) ? new Date(raw) : null;
+    }
+  }
+
+  // Fase finale: configurabile solo a gironi conclusi e prima di generare i tabelloni.
+  if (finalsEditable) {
+    if ('finalScoringMode' in body) {
+      const finalMode = pickEnum(body.finalScoringMode, ['SETS', 'GAMES_TARGET', 'TIME'] as const);
+      data.finalScoringMode = finalMode ?? null;
+      if (!finalMode) {
+        data.finalSetsPerMatch = null;
+        data.finalGamesPerSet = null;
+        data.finalTargetGames = null;
+      }
+    }
+    const finalSets = asInt(body.finalSetsPerMatch ?? body.finalMaxSets);
+    if (finalSets != null) data.finalSetsPerMatch = finalSets;
+    const finalGamesPerSet = asInt(body.finalGamesPerSet);
+    if (finalGamesPerSet != null) data.finalGamesPerSet = finalGamesPerSet;
+    const finalTargetGames = asInt(body.finalTargetGames);
+    if (finalTargetGames != null) data.finalTargetGames = finalTargetGames;
+
+    if (typeof body.splitGoldSilver === 'boolean') data.splitGoldSilver = body.splitGoldSilver;
+
+    const FINAL_ROUNDS = ['R16', 'R8', 'QF', 'SF', 'FINAL'] as const;
+    const finalStartRound = pickEnum(body.finalStartRound, FINAL_ROUNDS);
+    if (finalStartRound) data.finalStartRound = finalStartRound;
+    if ('finalStartRoundGold' in body) {
+      data.finalStartRoundGold = pickEnum(body.finalStartRoundGold, FINAL_ROUNDS) ?? null;
+    }
+    if ('finalStartRoundSilver' in body) {
+      data.finalStartRoundSilver = pickEnum(body.finalStartRoundSilver, FINAL_ROUNDS) ?? null;
+    }
+    if ('qualifiedForGold' in body) {
+      const q = asInt(body.qualifiedForGold);
+      data.qualifiedForGold = q != null ? Math.max(2, q) : null;
     }
   }
 

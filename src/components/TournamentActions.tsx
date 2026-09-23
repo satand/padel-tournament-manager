@@ -18,6 +18,8 @@ type Props = {
   finalsCount: number;
   groupMatchesTotal: number;
   groupMatchesDone: number;
+  groupsConcluded: boolean;
+  qualifiedCount: number;
 };
 
 type CoupleForm = { participantId: string | null; player1: string; player2: string; level: string };
@@ -31,7 +33,17 @@ function toInputDate(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function TournamentActions({ tournamentId, status, startsAt, participants, matchesCount, groups, settings, finalsCount, groupMatchesTotal, groupMatchesDone }: Props) {
+const FINAL_ROUND_LABELS: Record<string, string> = {
+  FINAL: 'Solo finale', SF: 'Semifinali', QF: 'Quarti', R8: 'Ottavi', R16: 'Sedicesimi'
+};
+const FINAL_ROUND_SIZE: Record<string, number> = { FINAL: 2, SF: 4, QF: 8, R8: 16, R16: 32 };
+function roundOptions(minEntrants: number, current: string): string[] {
+  const keys = Object.keys(FINAL_ROUND_SIZE).filter((r) => FINAL_ROUND_SIZE[r] >= minEntrants || r === current);
+  return keys.sort((a, b) => FINAL_ROUND_SIZE[a] - FINAL_ROUND_SIZE[b]);
+}
+const roundLabel = (r: string) => `${FINAL_ROUND_LABELS[r] ?? r} (${FINAL_ROUND_SIZE[r] ?? '?'})`;
+
+export function TournamentActions({ tournamentId, status, startsAt, participants, matchesCount, groups, settings, finalsCount, groupMatchesTotal, groupMatchesDone, groupsConcluded, qualifiedCount }: Props) {
   const router = useRouter();
   const [couple, setCouple] = useState<CoupleForm>(emptyCouple);
   const [busy, setBusy] = useState(false);
@@ -61,6 +73,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
     scoringMode: string; targetGames: number;
     finalScoringMode: string; finalMaxSets: number; finalGamesPerSet: number; finalTargetGames: number;
     groupCount: number; qualifiedPerGroup: number; finalStartRound: string;
+    finalStartRoundGold: string; finalStartRoundSilver: string; qualifiedForGold: number;
     splitGoldSilver: boolean; mvpEnabled: boolean; mvpThroughPhase: string;
     pointsWin: number; pointsLoss: number;
   }>({
@@ -72,13 +85,22 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
     finalTargetGames: settings?.finalTargetGames ?? 21,
     groupCount: settings?.groupCount ?? 2,
     qualifiedPerGroup: settings?.qualifiedPerGroup ?? 2,
-    finalStartRound: settings?.finalStartRound ?? 'SF',
+    finalStartRound: settings?.finalStartRound ?? 'FINAL',
+    finalStartRoundGold: settings?.finalStartRoundGold ?? '',
+    finalStartRoundSilver: settings?.finalStartRoundSilver ?? '',
+    qualifiedForGold: settings?.qualifiedForGold ?? (qualifiedCount >= 4 ? Math.floor(qualifiedCount / 2) : Math.max(2, qualifiedCount)),
     splitGoldSilver: settings?.splitGoldSilver ?? true,
     mvpEnabled: settings?.mvpEnabled ?? true,
     mvpThroughPhase: settings?.mvpThroughPhase ?? 'FINAL',
     pointsWin: structPoints.win ?? 3,
     pointsLoss: structPoints.loss ?? 0
   });
+
+  const finalsEditable = groupsConcluded && finalsCount === 0;
+  const gsAllowed = qualifiedCount >= 4;
+  const gsMode = struct.splitGoldSilver && gsAllowed;
+  const goldCount = gsAllowed ? Math.min(qualifiedCount - 2, Math.max(2, Math.trunc(struct.qualifiedForGold) || 2)) : qualifiedCount;
+  const silverCount = Math.max(0, qualifiedCount - goldCount);
 
   function setMessageLater(type: 'success' | 'error', text: string) {
     setMessage({ type, text });
@@ -236,6 +258,9 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
           groupCount: struct.groupCount,
           qualifiedPerGroup: struct.qualifiedPerGroup,
           finalStartRound: struct.finalStartRound,
+          finalStartRoundGold: struct.finalStartRoundGold || null,
+          finalStartRoundSilver: struct.finalStartRoundSilver || null,
+          qualifiedForGold: struct.splitGoldSilver ? struct.qualifiedForGold : null,
           splitGoldSilver: struct.splitGoldSilver,
           mvpEnabled: struct.mvpEnabled,
           mvpThroughPhase: struct.mvpThroughPhase,
@@ -374,50 +399,18 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
 
       <div style={{ marginTop: 20 }}>
         <h3>Impostazioni strutturali</h3>
-        {status !== 'DRAFT' ? (
-          <p style={{ color: 'var(--muted)', fontSize: 14 }}>Bloccate: il calendario è già stato generato. Crea un nuovo torneo per cambiare queste opzioni.</p>
-        ) : (
-          <>
-            <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 8px' }}>Modificabili finché il torneo è in bozza (prima di generare il calendario).</p>
+        {status === 'DRAFT' && !finalsEditable && (
+          <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0' }}>Le impostazioni della fase finale si sbloccano al termine della fase a gironi.</p>
+        )}
+
+        <div style={{ marginTop: 8 }}>
+          <h4>Impostazioni Generali</h4>
+          {status !== 'DRAFT' ? (
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Bloccate dopo la generazione del calendario.</p>
+          ) : (
             <div className="form-grid">
-              <div className="field"><label>Girone · Modalità punteggio</label>
-                <select value={struct.scoringMode} onChange={(e) => setStruct({ ...struct, scoringMode: e.target.value })}>
-                  <option value="GAMES_TARGET">A target (primo a N game)</option>
-                  <option value="TIME">A tempo</option>
-                </select>
-              </div>
-              {struct.scoringMode === 'GAMES_TARGET' && (
-                <div className="field"><label>Girone · Game da raggiungere</label><input type="number" min={1} value={struct.targetGames} onChange={(e) => setStruct({ ...struct, targetGames: Number(e.target.value) })} /></div>
-              )}
-              <div className="field"><label>Fase finale · Modalità punteggio</label>
-                <select value={struct.finalScoringMode} onChange={(e) => setStruct({ ...struct, finalScoringMode: e.target.value })}>
-                  <option value="">Uguale ai gironi</option>
-                  <option value="SETS">Set (al meglio di N)</option>
-                  <option value="GAMES_TARGET">A target (primo a N game)</option>
-                  <option value="TIME">A tempo</option>
-                </select>
-              </div>
-              {struct.finalScoringMode === 'SETS' && (
-                <>
-                  <div className="field"><label>Finale · Set al meglio di</label><input type="number" min={1} max={3} value={struct.finalMaxSets} onChange={(e) => setStruct({ ...struct, finalMaxSets: Number(e.target.value) })} /></div>
-                  <div className="field"><label>Finale · Game per set</label><input type="number" min={1} value={struct.finalGamesPerSet} onChange={(e) => setStruct({ ...struct, finalGamesPerSet: Number(e.target.value) })} /></div>
-                </>
-              )}
-              {struct.finalScoringMode === 'GAMES_TARGET' && (
-                <div className="field"><label>Finale · Game da raggiungere</label><input type="number" min={1} value={struct.finalTargetGames} onChange={(e) => setStruct({ ...struct, finalTargetGames: Number(e.target.value) })} /></div>
-              )}
-              <div className="field"><label>Numero di gironi</label><input type="number" min={1} value={struct.groupCount} onChange={(e) => setStruct({ ...struct, groupCount: Number(e.target.value) })} /></div>
-              <div className="field"><label>Qualificati per girone</label><input type="number" min={1} value={struct.qualifiedPerGroup} onChange={(e) => setStruct({ ...struct, qualifiedPerGroup: Number(e.target.value) })} /></div>
-              <div className="field"><label>Fase finale da</label>
-                <select value={struct.finalStartRound} onChange={(e) => setStruct({ ...struct, finalStartRound: e.target.value })}>
-                  <option value="R16">Sedicesimi</option><option value="R8">Ottavi</option><option value="QF">Quarti</option><option value="SF">Semifinali</option><option value="FINAL">Solo finale</option>
-                </select>
-              </div>
-              <div className="field"><label>Tabelloni</label>
-                <select value={struct.splitGoldSilver ? 'gs' : 'single'} onChange={(e) => setStruct({ ...struct, splitGoldSilver: e.target.value === 'gs' })}>
-                  <option value="gs">Gold + Silver</option><option value="single">Tabellone unico</option>
-                </select>
-              </div>
+              <div className="field"><label>Punti vittoria</label><input type="number" value={struct.pointsWin} onChange={(e) => setStruct({ ...struct, pointsWin: Number(e.target.value) })} /></div>
+              <div className="field"><label>Punti sconfitta</label><input type="number" value={struct.pointsLoss} onChange={(e) => setStruct({ ...struct, pointsLoss: Number(e.target.value) })} /></div>
               <div className="field"><label>MVP attivo</label>
                 <select value={struct.mvpEnabled ? 'si' : 'no'} onChange={(e) => setStruct({ ...struct, mvpEnabled: e.target.value === 'si' })}><option value="si">Sì</option><option value="no">No</option></select>
               </div>
@@ -426,11 +419,100 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
                   <option value="GROUP">Solo gironi</option><option value="R16">Sedicesimi</option><option value="R8">Ottavi</option><option value="QF">Quarti</option><option value="SF">Semifinali</option><option value="FINAL">Finale</option>
                 </select>
               </div>
-              <div className="field"><label>Punti vittoria</label><input type="number" value={struct.pointsWin} onChange={(e) => setStruct({ ...struct, pointsWin: Number(e.target.value) })} /></div>
-              <div className="field"><label>Punti sconfitta</label><input type="number" value={struct.pointsLoss} onChange={(e) => setStruct({ ...struct, pointsLoss: Number(e.target.value) })} /></div>
             </div>
-            <div className="actions"><button className="button secondary" disabled={savingStruct} onClick={saveStruct}>{savingStruct ? 'Salvataggio...' : 'Salva impostazioni'}</button></div>
-          </>
+          )}
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <h4>Impostazioni Fase a Gironi</h4>
+          {status !== 'DRAFT' ? (
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Bloccate dopo la generazione del calendario.</p>
+          ) : (
+            <div className="form-grid">
+              <div className="field"><label>Numero di gironi</label><input type="number" min={1} value={struct.groupCount} onChange={(e) => setStruct({ ...struct, groupCount: Number(e.target.value) })} /></div>
+              <div className="field"><label>Modalità punteggio</label>
+                <select value={struct.scoringMode} onChange={(e) => setStruct({ ...struct, scoringMode: e.target.value })}>
+                  <option value="GAMES_TARGET">A target (primo a N game)</option>
+                  <option value="TIME">A tempo</option>
+                </select>
+              </div>
+              {struct.scoringMode === 'GAMES_TARGET' && (
+                <div className="field"><label>Game da raggiungere</label><input type="number" min={1} value={struct.targetGames} onChange={(e) => setStruct({ ...struct, targetGames: Number(e.target.value) })} /></div>
+              )}
+              <div className="field"><label>Qualificati per girone</label><input type="number" min={1} value={struct.qualifiedPerGroup} onChange={(e) => setStruct({ ...struct, qualifiedPerGroup: Number(e.target.value) })} /></div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <h4>Impostazioni Fase Finale</h4>
+          {finalsCount > 0 ? (
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Fase finale già generata: per modificare queste opzioni rigenera i tabelloni.</p>
+          ) : !groupsConcluded ? (
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Disponibile al termine della fase a gironi (chiudi tutte le partite dei gironi).</p>
+          ) : (
+            <>
+              <p style={{ color: 'var(--muted)', fontSize: 13, margin: '0 0 8px' }}>{qualifiedCount} squadre qualificate dai gironi. Gold/Silver e dimensione dei tabelloni sono scelti in base al numero reale di qualificate.</p>
+              <div className="form-grid">
+                <div className="field"><label>Tabelloni</label>
+                  <select value={gsMode ? 'gs' : 'single'} disabled={!gsAllowed} onChange={(e) => setStruct({ ...struct, splitGoldSilver: e.target.value === 'gs' })}>
+                    <option value="gs">Gold + Silver</option>
+                    <option value="single">Tabellone unico</option>
+                  </select>
+                  {!gsAllowed && <span style={{ color: 'var(--muted)', fontSize: 11 }}>Gold + Silver richiede almeno 4 qualificate.</span>}
+                </div>
+
+                {!gsMode ? (
+                  <div className="field"><label>Fase finale da</label>
+                    <select value={FINAL_ROUND_SIZE[struct.finalStartRound] >= qualifiedCount ? struct.finalStartRound : (roundOptions(qualifiedCount, '')[0] ?? 'FINAL')} onChange={(e) => setStruct({ ...struct, finalStartRound: e.target.value })}>
+                      {roundOptions(qualifiedCount, struct.finalStartRound).map((r) => <option key={r} value={r}>{roundLabel(r)}</option>)}
+                    </select>
+                  </div>
+                ) : (
+                  <>
+                    <div className="field"><label>Squadre nel tabellone Gold</label>
+                      <input type="number" min={2} max={qualifiedCount - 2} value={goldCount} onChange={(e) => setStruct({ ...struct, qualifiedForGold: Number(e.target.value) })} />
+                      <span style={{ color: 'var(--muted)', fontSize: 11 }}>{goldCount} in Gold, {silverCount} in Silver (restanti). Le migliori {goldCount} del ranking globale vanno in Gold.</span>
+                    </div>
+                    <div className="field"><label>Gold · Fase finale da</label>
+                      <select value={struct.finalStartRoundGold} onChange={(e) => setStruct({ ...struct, finalStartRoundGold: e.target.value })}>
+                        <option value="">Automatico (minimo)</option>
+                        {roundOptions(goldCount, struct.finalStartRoundGold).map((r) => <option key={r} value={r}>{roundLabel(r)}</option>)}
+                      </select>
+                    </div>
+                    <div className="field"><label>Silver · Fase finale da</label>
+                      <select value={struct.finalStartRoundSilver} onChange={(e) => setStruct({ ...struct, finalStartRoundSilver: e.target.value })}>
+                        <option value="">Automatico (minimo)</option>
+                        {roundOptions(Math.max(2, silverCount), struct.finalStartRoundSilver).map((r) => <option key={r} value={r}>{roundLabel(r)}</option>)}
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                <div className="field"><label>Modalità punteggio fase finale</label>
+                  <select value={struct.finalScoringMode} onChange={(e) => setStruct({ ...struct, finalScoringMode: e.target.value })}>
+                    <option value="">Uguale ai gironi</option>
+                    <option value="SETS">Set (al meglio di N)</option>
+                    <option value="GAMES_TARGET">A target (primo a N game)</option>
+                    <option value="TIME">A tempo</option>
+                  </select>
+                </div>
+                {struct.finalScoringMode === 'SETS' && (
+                  <>
+                    <div className="field"><label>Set al meglio di</label><input type="number" min={1} max={3} value={struct.finalMaxSets} onChange={(e) => setStruct({ ...struct, finalMaxSets: Number(e.target.value) })} /></div>
+                    <div className="field"><label>Game per set</label><input type="number" min={1} value={struct.finalGamesPerSet} onChange={(e) => setStruct({ ...struct, finalGamesPerSet: Number(e.target.value) })} /></div>
+                  </>
+                )}
+                {struct.finalScoringMode === 'GAMES_TARGET' && (
+                  <div className="field"><label>Game da raggiungere</label><input type="number" min={1} value={struct.finalTargetGames} onChange={(e) => setStruct({ ...struct, finalTargetGames: Number(e.target.value) })} /></div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {(status === 'DRAFT' || finalsEditable) && (
+          <div className="actions"><button className="button secondary" disabled={savingStruct} onClick={saveStruct}>{savingStruct ? 'Salvataggio...' : 'Salva impostazioni'}</button></div>
         )}
       </div>
 

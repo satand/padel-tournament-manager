@@ -106,6 +106,23 @@ export function averageMvpRatingByParticipant(participants: Participant[], votes
   }, {});
 }
 
+// Somma delle media-voto dei singoli giocatori della squadra (discriminante Gold/Silver).
+export function sumMvpRatingByParticipant(participants: Participant[], votes: MVPVote[]): Record<string, number> {
+  const ratingsByPlayer: Record<string, number[]> = {};
+  for (const vote of votes) {
+    (ratingsByPlayer[vote.playerId] ??= []).push(vote.rating);
+  }
+  return participants.reduce<Record<string, number>>((acc, participant) => {
+    let sum = 0;
+    for (const playerId of participant.playerIds) {
+      const ratings = ratingsByPlayer[playerId];
+      if (ratings && ratings.length > 0) sum += simpleAverage(ratings);
+    }
+    acc[participant.id] = round(sum, 3);
+    return acc;
+  }, {});
+}
+
 function countMatchesPlayedByPlayer(participants: Participant[], matches: Match[]): Record<string, number> {
   const playerToParticipants = new Map<string, string[]>();
   for (const participant of participants) {

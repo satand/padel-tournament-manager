@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/server/db';
-import { buildRules } from '@/lib/server/serialize';
+import { tournamentInclude, toDomainContext } from '@/lib/server/serialize';
 import { resolveBracket } from '@/lib/server/bracket';
 import { buildFinalBracket, type FinalSlot } from '@/lib/domain/scheduler';
+import { bracketSizeFor, orderQualifiers, splitGoldSilver, type ComparableQualified, type FinalRound } from '@/lib/domain/finals';
+import { sumMvpRatingByParticipant } from '@/lib/domain/mvp';
 import { calculateRanking } from '@/lib/domain/ranking';
-import type { Match as DomainMatch, Participant } from '@/lib/domain/types';
 
 const finalsPredicate = { phase: { not: 'group' } } as const;
 
@@ -17,22 +18,26 @@ function slotParent(slot: FinalSlot): { result: 'WINNER' | 'LOSER' } | null {
   return null;
 }
 
+function asRound(v: string | null | undefined): FinalRound | null {
+  return v === 'R16' || v === 'R8' || v === 'QF' || v === 'SF' || v === 'FINAL' ? v : null;
+}
+
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
   const body = await request.json().catch(() => ({}));
   const regenerate = body.regenerate === true;
 
-  const tournament = await prisma.tournament.findUnique({
-    where: { id },
-    include: {
-      settings: true,
-      groups: { orderBy: { sortOrder: 'asc' } },
-      participants: true,
-      matches: { where: { phase: 'group' }, include: { sets: true } }
-    }
-  });
+  const tournament = await prisma.tournament.findUnique({ where: { id }, include: tournamentInclude });
   if (!tournament) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
-  if (tournament.groups.length === 0) return NextResponse.json({ error: 'Genera prima la fase a gironi.' }, { status: 400 });
+
+  const ctx = toDomainContext(tournament);
+  if (ctx.groups.length === 0) return NextResponse.json({ error: 'Genera prima la fase a gironi.' }, { status: 400 });
+
+  const groupMatches = ctx.matches.filter((m) => m.groupId != null);
+  const groupDone = groupMatches.length > 0 && groupMatches.every((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
+  if (!groupDone) {
+    return NextResponse.json({ error: 'La fase finale si configura al termine della fase a gironi.' }, { status: 400 });
+  }
 
   const existingFinals = await prisma.match.count({ where: { tournamentId: id, ...finalsPredicate } });
   if (existingFinals > 0 && !regenerate) {
@@ -45,57 +50,52 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     await prisma.match.deleteMany({ where: { tournamentId: id, ...finalsPredicate } });
   }
 
-  const rules = buildRules(tournament.settings);
-  const qualifiedPerGroup = tournament.settings?.qualifiedPerGroup ?? 2;
-  const split = tournament.settings?.splitGoldSilver ?? false;
+  const rules = ctx.rules;
+  const settings = tournament.settings;
+  const qualifiedPerGroup = settings?.qualifiedPerGroup ?? 2;
+  const split = settings?.splitGoldSilver ?? false;
 
-  const domainParticipants: Participant[] = tournament.participants.map((p) => ({
-    id: p.id,
-    displayName: p.displayName,
-    type: 'TEAM',
-    playerIds: [],
-    level: p.level ?? undefined,
-    seed: p.seed ?? undefined,
-    isWithdrawn: p.isWithdrawn,
-    groupId: p.groupId ?? undefined
-  }));
-  const byId = new Map(domainParticipants.map((p) => [p.id, p]));
+  // Somma MVP (media voto per giocatore, sommata sui due componenti) sui voti dei soli gironi.
+  const groupMatchIds = new Set(groupMatches.map((m) => m.id));
+  const groupVotes = ctx.mvpVotes.filter((v) => groupMatchIds.has(v.matchId));
+  const mvpSum = sumMvpRatingByParticipant(ctx.participants, groupVotes);
 
-  type Qualified = { id: string; level: number; rank: number };
-  const qualified: Qualified[] = [];
-  for (const group of tournament.groups) {
-    const gp = domainParticipants.filter((p) => p.groupId === group.id);
-    const gm: DomainMatch[] = tournament.matches.filter((m) => m.groupId === group.id).map((m) => ({
-      id: m.id,
-      participantAId: m.participantAId,
-      participantBId: m.participantBId,
-      status: m.status as DomainMatch['status'],
-      sets: m.sets.map((s) => ({ setNumber: s.setNumber, gamesA: s.gamesA, gamesB: s.gamesB }))
-    }));
+  // Pool dei qualificati: top "qualifiedPerGroup" per girone (ordinamento interno del girone invariato).
+  const pool: ComparableQualified[] = [];
+  for (const group of ctx.groups) {
+    const gp = ctx.participants.filter((p) => p.groupId === group.id && !p.isWithdrawn);
+    const gm = groupMatches.filter((m) => m.groupId === group.id);
     const table = calculateRanking(gp, gm, rules);
-    table.slice(0, qualifiedPerGroup).forEach((row, idx) => {
-      const p = byId.get(row.participantId);
-      if (p) qualified.push({ id: p.id, level: p.level ?? 0, rank: idx + 1 });
-    });
+    for (const row of table.slice(0, qualifiedPerGroup)) {
+      pool.push({
+        id: row.participantId,
+        displayName: row.displayName,
+        points: row.points,
+        gameDiff: row.gameDiff,
+        mvpSum: mvpSum[row.participantId] ?? 0
+      });
+    }
   }
 
-  const gold: Qualified[] = [];
-  const silver: Qualified[] = [];
-  const single: Qualified[] = [];
-  if (split && qualifiedPerGroup >= 2) {
-    for (const q of qualified) (q.rank === 1 ? gold : silver).push(q);
+  // Ranking globale cross-girone: punti -> differenza game -> somma MVP -> nome.
+  const ordered = orderQualifiers(pool);
+
+  const byId = new Map(ctx.participants.map((p) => [p.id, p]));
+  let gold: ComparableQualified[] = [];
+  let silver: ComparableQualified[] = [];
+  let single: ComparableQualified[] = [];
+  if (split && ordered.length >= 4) {
+    ({ gold, silver } = splitGoldSilver(ordered, settings?.qualifiedForGold));
   } else {
-    single.push(...qualified);
+    single = ordered;
   }
-
-  const seedSort = (arr: Qualified[]) => [...arr].sort((a, b) => a.rank - b.rank || b.level - a.level);
 
   let created = 0;
-  const createBracket = async (arr: Qualified[], bracket: 'GOLD' | 'SILVER' | null) => {
-    const ordered = seedSort(arr);
-    if (ordered.length < 2) return;
-    const entrants = ordered.map((q) => byId.get(q.id)!).filter(Boolean);
-    const bm = buildFinalBracket(entrants, bracket);
+  const createBracket = async (arr: ComparableQualified[], bracket: 'GOLD' | 'SILVER' | null, round: FinalRound | null) => {
+    if (arr.length < 2) return;
+    const entrants = arr.map((q) => byId.get(q.id)!).filter(Boolean);
+    const size = bracketSizeFor(entrants.length, round);
+    const bm = buildFinalBracket(entrants, bracket, size);
     const keyToId = new Map<string, string>();
     for (const m of bm) {
       const parentA = slotParent(m.a);
@@ -123,11 +123,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
   };
 
-  if (split && qualifiedPerGroup >= 2) {
-    await createBracket(gold, 'GOLD');
-    await createBracket(silver, 'SILVER');
+  if (gold.length >= 2 || silver.length >= 2) {
+    await createBracket(gold, 'GOLD', asRound(settings?.finalStartRoundGold));
+    await createBracket(silver, 'SILVER', asRound(settings?.finalStartRoundSilver));
   } else {
-    await createBracket(single, null);
+    await createBracket(single, null, asRound(settings?.finalStartRound));
   }
 
   await resolveBracket(id);
@@ -139,8 +139,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   return NextResponse.json({
     ok: true,
     matchesCreated: created,
-    goldEntrants: split && qualifiedPerGroup >= 2 ? gold.length : 0,
-    silverEntrants: split && qualifiedPerGroup >= 2 ? silver.length : 0,
-    singleEntrants: split && qualifiedPerGroup >= 2 ? 0 : single.length
+    qualified: ordered.length,
+    goldEntrants: gold.length,
+    silverEntrants: silver.length,
+    singleEntrants: single.length
   }, { status: 201 });
 }
