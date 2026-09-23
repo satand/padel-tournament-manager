@@ -42,6 +42,7 @@ function roundOptions(minEntrants: number, current: string): string[] {
   return keys.sort((a, b) => FINAL_ROUND_SIZE[a] - FINAL_ROUND_SIZE[b]);
 }
 const roundLabel = (r: string) => `${FINAL_ROUND_LABELS[r] ?? r} (${FINAL_ROUND_SIZE[r] ?? '?'})`;
+const SectionDivider = () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '22px 0' }} />;
 
 export function TournamentActions({ tournamentId, status, startsAt, participants, matchesCount, groups, settings, finalsCount, groupMatchesTotal, groupMatchesDone, groupsConcluded, qualifiedCount }: Props) {
   const router = useRouter();
@@ -328,7 +329,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         </div>
       )}
 
-      <div style={{ marginBottom: 16 }}>
+      <div>
         <h3>Dati torneo</h3>
         <div className="form-grid">
           <div className="field">
@@ -350,7 +351,8 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         </div>
       </div>
 
-      <div style={{ marginTop: 20 }}>
+      <SectionDivider />
+      <div>
         <h3>Schermo di proiezione</h3>
         <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Secondi di permanenza di ogni slide nel carosello della schermata di proiezione (2–120).</p>
         <div className="form-grid">
@@ -363,6 +365,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         </div>
       </div>
 
+      <SectionDivider />
       <div className="grid grid-2">
         <div>
           <h3>{rosterLocked ? 'Coppie' : editing ? 'Modifica coppia' : 'Aggiungi coppia'}</h3>
@@ -425,7 +428,8 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         </div>
       </div>
 
-      <div style={{ marginTop: 20 }}>
+      <SectionDivider />
+      <div>
         <h3>Impostazioni strutturali</h3>
         {status === 'DRAFT' && !finalsEditable && (
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0' }}>Le impostazioni della fase finale si sbloccano al termine della fase a gironi.</p>
@@ -544,7 +548,8 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         )}
       </div>
 
-      <div style={{ marginTop: 20 }}>
+      <SectionDivider />
+      <div>
         <h3>Calendario</h3>
         <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Parametri applicati alla generazione. Puoi modificarli e rigenerare in qualsiasi momento (i risultati vanno persi solo se rigeneri).</p>
         <div className="form-grid">
@@ -565,7 +570,8 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         <div className="actions"><button className="button secondary" disabled={savingCal} onClick={saveCalendario}>{savingCal ? 'Salvataggio...' : 'Salva calendario'}</button></div>
       </div>
 
-      <div style={{ marginTop: 20 }}>
+      <SectionDivider />
+      <div>
         <h3>Genera calendario</h3>
         <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 8 }}>
           Crea i gironi bilanciati per livello e le partite di girone. Attive: {participants.length} coppie{groups.length > 0 ? `, ${groups.length} gironi` : ''}.
@@ -589,7 +595,8 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         {status === 'DRAFT' && matchesCount === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>Suggerimento: aggiungi le coppie con il livello, poi genera i gironi.</p>}
       </div>
 
-      <div style={{ marginTop: 20 }}>
+      <SectionDivider />
+      <div>
         <h3>Fase finale</h3>
         {groupMatchesTotal === 0 ? (
           <p style={{ color: 'var(--muted)', fontSize: 14 }}>Genera prima il calendario dei gironi.</p>
