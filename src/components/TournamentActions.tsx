@@ -20,6 +20,7 @@ type Props = {
   groupMatchesDone: number;
   groupsConcluded: boolean;
   qualifiedCount: number;
+  finalsCompleted: boolean;
 };
 
 type CoupleForm = { participantId: string | null; player1: string; player2: string; level: string };
@@ -44,12 +45,14 @@ function roundOptions(minEntrants: number, current: string): string[] {
 const roundLabel = (r: string) => `${FINAL_ROUND_LABELS[r] ?? r} (${FINAL_ROUND_SIZE[r] ?? '?'})`;
 const SectionDivider = () => <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '22px 0' }} />;
 
-export function TournamentActions({ tournamentId, status, startsAt, participants, matchesCount, groups, settings, finalsCount, groupMatchesTotal, groupMatchesDone, groupsConcluded, qualifiedCount }: Props) {
+export function TournamentActions({ tournamentId, status, startsAt, participants, matchesCount, groups, settings, finalsCount, groupMatchesTotal, groupMatchesDone, groupsConcluded, qualifiedCount, finalsCompleted }: Props) {
   const router = useRouter();
   const [couple, setCouple] = useState<CoupleForm>(emptyCouple);
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [generatingFinals, setGeneratingFinals] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [confirmRegenFinals, setConfirmRegenFinals] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -94,7 +97,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
     qualifiedForGold: settings?.qualifiedForGold ?? (qualifiedCount >= 4 ? Math.floor(qualifiedCount / 2) : Math.max(2, qualifiedCount)),
     splitGoldSilver: settings?.splitGoldSilver ?? true,
     mvpEnabled: settings?.mvpEnabled ?? true,
-    mvpThroughPhase: settings?.mvpThroughPhase ?? 'FINAL',
+    mvpThroughPhase: settings?.mvpThroughPhase ?? 'GROUP',
     pointsWin: structPoints.win ?? 3,
     pointsLoss: structPoints.loss ?? 0
   });
@@ -313,6 +316,23 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
       setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
     } finally {
       setGeneratingFinals(false);
+    }
+  }
+
+  async function handleClose() {
+    setClosing(true);
+    setMessage(null);
+    setConfirmClose(false);
+    try {
+      const res = await fetch(`/api/tournaments/${tournamentId}/close`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof data.error === 'string' ? data.error : 'Errore nella chiusura del torneo.');
+      setMessageLater('success', 'Torneo chiuso: non è più modificabile.');
+      router.refresh();
+    } catch (err) {
+      setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
+    } finally {
+      setClosing(false);
     }
   }
 
@@ -606,16 +626,27 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
           <p style={{ color: 'var(--muted)', fontSize: 14 }}>Genera prima il calendario dei gironi.</p>
         ) : groupMatchesDone < groupMatchesTotal ? (
           <p style={{ color: 'var(--warning)', fontSize: 14 }}>Completa le partite dei gironi ({groupMatchesDone}/{groupMatchesTotal} concluse) per generare la fase finale.</p>
-        ) : finalsCount > 0 && !confirmRegenFinals ? (
-          <div className="actions">
+        ) : finalsCount > 0 && !confirmRegenFinals && !confirmClose ? (
+          <div className="actions" style={{ flexWrap: 'wrap' }}>
             <p style={{ color: 'var(--muted)', fontSize: 14, marginRight: 8 }}>Fase finale già generata ({finalsCount} partite).</p>
             <button className="button secondary" disabled={generatingFinals} onClick={() => setConfirmRegenFinals(true)}>Rigenera fase finale</button>
+            {finalsCompleted ? (
+              <button className="button" disabled={closing} onClick={() => setConfirmClose(true)}>Chiudi torneo</button>
+            ) : (
+              <span style={{ fontSize: 13, color: 'var(--muted)', marginLeft: 8 }}>Completa le partite della fase finale per poter chiudere il torneo.</span>
+            )}
           </div>
         ) : finalsCount > 0 && confirmRegenFinals ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca' }}>
             <span style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 700 }}>Le partite della fase finale e i relativi risultati saranno eliminati. Continuare?</span>
             <button className="button" disabled={generatingFinals} style={{ background: 'var(--danger)', padding: '6px 14px', fontSize: 13 }} onClick={() => handleGenerateFinals(true)}>{generatingFinals ? 'Rigenerazione...' : 'Sì, rigenera'}</button>
             <button className="button secondary" style={{ padding: '6px 14px', fontSize: 13 }} onClick={() => setConfirmRegenFinals(false)}>Annulla</button>
+          </span>
+        ) : finalsCount > 0 && confirmClose ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 12, background: '#eef2ff', border: '1px solid #c7d2fe' }}>
+            <span style={{ fontSize: 13, color: '#3730a3', fontWeight: 700 }}>Chiudere il torneo? Una volta chiuso non sarà più modificabile (potrai solo eliminarlo). Continuare?</span>
+            <button className="button" disabled={closing} style={{ padding: '6px 14px', fontSize: 13 }} onClick={handleClose}>{closing ? 'Chiusura...' : 'Sì, chiudi'}</button>
+            <button className="button secondary" style={{ padding: '6px 14px', fontSize: 13 }} onClick={() => setConfirmClose(false)}>Annulla</button>
           </span>
         ) : (
           <div className="actions">

@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   const format = pick(body.format, ['ROUND_ROBIN', 'GROUPS_PLUS_FINALS'] as const, 'GROUPS_PLUS_FINALS');
   const scoringMode = pick(body.scoringMode, ['GAMES_TARGET', 'TIME'] as const, 'GAMES_TARGET');
   const finalStartRound = pick(body.finalStartRound, ['R16', 'R8', 'QF', 'SF', 'FINAL'] as const, 'FINAL');
-  const mvpThroughPhase = pick(body.mvpThroughPhase, ['GROUP', 'R16', 'R8', 'QF', 'SF', 'FINAL'] as const, 'FINAL');
+  const mvpThroughPhase = pick(body.mvpThroughPhase, ['GROUP', 'R16', 'R8', 'QF', 'SF', 'FINAL'] as const, 'GROUP');
 
   const tournament = await prisma.tournament.create({
     data: {
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
           matchDurationMinutes: num(body.matchDurationMinutes, 30),
           warmUpMinutes: num(body.warmUpMinutes, 5),
           changeoverMinutes: num(body.changeoverMinutes, 15),
-          maxMatchesPerPlayerDay: body.maxMatchesPerPlayerDay === null ? null : num(body.maxMatchesPerPlayerDay, 6),
+          maxMatchesPerPlayerDay: body.maxMatchesPerPlayerDay == null ? null : num(body.maxMatchesPerPlayerDay, 6),
           groupCount: body.groupCount != null ? num(body.groupCount, 1) : null,
           qualifiedPerGroup: num(body.qualifiedPerGroup, 2),
           finalStartRound,

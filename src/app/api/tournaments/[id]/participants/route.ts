@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/server/db';
 import { coupleSchema, couplesPayloadSchema } from '@/lib/domain/validators';
+import { closedResponse } from '@/lib/server/guards';
 import { composeTeamDisplayName, parsePlayerName, playerSurname } from '@/lib/domain/teams';
 
 function roundLevel(level: number | undefined): number | null {
@@ -18,6 +19,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
   const tournament = await prisma.tournament.findUnique({ where: { id } });
   if (!tournament) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
+  const locked = closedResponse(tournament);
+  if (locked) return locked;
   if ((await matchCount(id)) > 0) {
     return NextResponse.json({ error: ROSTER_LOCKED }, { status: 400 });
   }
@@ -53,6 +56,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
+  const tournament = await prisma.tournament.findUnique({ where: { id }, select: { status: true } });
+  const locked = closedResponse(tournament);
+  if (locked) return locked;
   const body = await request.json().catch(() => ({}));
   const participantId = typeof body.participantId === 'string' ? body.participantId : '';
   if (!participantId) return NextResponse.json({ error: 'participantId obbligatorio.' }, { status: 400 });
@@ -93,6 +99,9 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
+  const tournament = await prisma.tournament.findUnique({ where: { id }, select: { status: true } });
+  const locked = closedResponse(tournament);
+  if (locked) return locked;
   const participantId = request.nextUrl.searchParams.get('participantId');
   if (!participantId) return NextResponse.json({ error: 'participantId è obbligatorio.' }, { status: 400 });
 

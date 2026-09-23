@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext } from '@/lib/server/serialize';
+import { closedResponse } from '@/lib/server/guards';
 import { resolveBracket } from '@/lib/server/bracket';
 import { buildFinalBracket, type FinalSlot } from '@/lib/domain/scheduler';
 import { bracketSizeFor, orderQualifiers, splitGoldSilver, type ComparableQualified, type FinalRound } from '@/lib/domain/finals';
@@ -29,6 +30,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
   const tournament = await prisma.tournament.findUnique({ where: { id }, include: tournamentInclude });
   if (!tournament) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
+  const locked = closedResponse(tournament);
+  if (locked) return locked;
 
   const ctx = toDomainContext(tournament);
   if (ctx.groups.length === 0) return NextResponse.json({ error: 'Genera prima la fase a gironi.' }, { status: 400 });

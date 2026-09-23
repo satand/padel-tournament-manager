@@ -132,7 +132,7 @@ model TournamentSettings {
   maxPlayers             Int?
   courtsCount            Int             @default(2)
   matchDurationMinutes   Int             @default(30)
-  maxMatchesPerPlayerDay Int?            @default(6)
+  maxMatchesPerPlayerDay Int?
   warmUpMinutes          Int             @default(5)
   changeoverMinutes      Int             @default(15)
   setsPerMatch           Int             @default(1)
@@ -157,7 +157,7 @@ model TournamentSettings {
   finalStartRoundGold    FinalStartRound?
   finalStartRoundSilver  FinalStartRound?
   splitGoldSilver        Boolean         @default(false)
-  mvpThroughPhase        MvpPhase        @default(FINAL)
+  mvpThroughPhase        MvpPhase        @default(GROUP)
   presentSlideSeconds    Int?
   mvpWeights             Json
   scoreRules             Json

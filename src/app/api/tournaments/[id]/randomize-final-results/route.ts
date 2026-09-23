@@ -4,6 +4,7 @@ import { buildRules } from '@/lib/server/serialize';
 import { resolveBracket } from '@/lib/server/bracket';
 import { writeAuditLog } from '@/lib/server/audit';
 import { randomizeMatches, loadParticipantPlayers } from '@/lib/server/randomResults';
+import { closedResponse } from '@/lib/server/guards';
 import type { MvpThrough } from '@/lib/domain/mvp';
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
@@ -11,6 +12,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
 
   const tournament = await prisma.tournament.findUnique({ where: { id }, include: { settings: true } });
   if (!tournament?.settings) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
+  const locked = closedResponse(tournament);
+  if (locked) return locked;
 
   const rules = buildRules(tournament.settings);
   const mvpEnabled = Boolean(tournament.settings.mvpEnabled);

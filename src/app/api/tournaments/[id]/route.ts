@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/server/db';
+import { closedResponse } from '@/lib/server/guards';
 
 function asInt(value: unknown): number | undefined {
   const n = typeof value === 'string' ? Number(value) : value;
@@ -19,6 +20,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const tournament = await prisma.tournament.findUnique({ where: { id }, include: { settings: true } });
   if (!tournament) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
   if (!tournament.settings) return NextResponse.json({ error: 'Impostazioni non trovate.' }, { status: 404 });
+  const locked = closedResponse(tournament);
+  if (locked) return locked;
 
   // La fase finale e' configurabile solo a gironi conclusi e prima di generare i tabelloni.
   const phaseStatus = await prisma.match.findMany({ where: { tournamentId: id }, select: { phase: true, status: true } });

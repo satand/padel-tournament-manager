@@ -9,8 +9,8 @@ export default async function TournamentsListPage() {
   const tournaments = await prisma.tournament.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
-      settings: true,
-      _count: { select: { participants: true, matches: true } },
+      _count: { select: { participants: true } },
+      matches: { select: { status: true } },
     },
   });
 
@@ -31,7 +31,9 @@ export default async function TournamentsListPage() {
       )}
 
       <section className="grid grid-2">
-        {tournaments.map((t) => (
+        {tournaments.map((t) => {
+          const done = t.matches.filter((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status)).length;
+          return (
           <Link key={t.id} href={`/tournaments/${t.slug}`} style={{ textDecoration: 'none' }}>
             <article className="panel" style={{ cursor: 'pointer', transition: 'border-color .15s', height: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
@@ -53,16 +55,17 @@ export default async function TournamentsListPage() {
                 </div>
               </div>
               <div className="grid grid-3" style={{ marginTop: 12 }}>
-                <div className="stat"><div className="stat-label">Partecipanti</div><div className="stat-value">{t._count.participants}</div></div>
-                <div className="stat"><div className="stat-label">Partite</div><div className="stat-value">{t._count.matches}</div></div>
-                <div className="stat"><div className="stat-label">Campi</div><div className="stat-value">{t.settings?.courtsCount ?? '—'}</div></div>
+                <div className="stat"><div className="stat-label">Coppie</div><div className="stat-value">{t._count.participants}</div></div>
+                <div className="stat"><div className="stat-label">Partite</div><div className="stat-value">{t.matches.length}</div></div>
+                <div className="stat"><div className="stat-label">Concluse</div><div className="stat-value">{done}</div></div>
               </div>
               <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6, marginBottom: 0 }}>
                 Creato il {new Date(t.createdAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}
               </p>
             </article>
           </Link>
-        ))}
+          );
+        })}
       </section>
     </main>
   );

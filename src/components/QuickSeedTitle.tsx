@@ -95,7 +95,7 @@ export function QuickSeedTitle() {
           targetGames: 16,
           finalStartRound: 'SF',
           mvpEnabled: true,
-          mvpThroughPhase: 'FINAL'
+          mvpThroughPhase: 'GROUP'
         })
       });
       if (!createRes.ok) {

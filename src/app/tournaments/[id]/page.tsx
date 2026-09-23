@@ -62,6 +62,11 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
     const size = data.participants.filter((p) => p.groupId === g.id && !p.isWithdrawn).length;
     return sum + Math.min(qualifiedPerGroup, size);
   }, 0);
+  const completedAll = data.matches.filter((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status)).length;
+  const locked = data.status === 'COMPLETED';
+  const finalsCompleted = finalMatches.length > 0 && finalMatches.every((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
+  const editing = !locked;
+  const groupDisplay = [...scheduledMatches, ...completedMatches];
 
   return (
     <main className="grid">
@@ -80,7 +85,7 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
           </div>
           <DeleteTournamentButton tournamentId={data.id} tournamentName={data.name} redirectTo="/tournaments" />
         </div>
-        <p className="lead">Dashboard organizzatore: coppie, calendari, classifiche per girone e MVP provvisorio.</p>
+        <p className="lead">Dashboard organizzatore: coppie, calendari, classifiche per girone e MVP.</p>
         <div className="actions">
           <Link className="button secondary" href={`/public/${data.id}`} target="_blank">Apri pagina pubblica</Link>
           <Link className="button secondary" href={`/present/${data.id}`} target="_blank">Schermo di proiezione</Link>
@@ -91,11 +96,10 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
           <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=${data.groups.length > 0 ? 'groups' : 'ranking'}`} download>Classifiche</a>
           <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=mvp`} download>MVP</a>
         </div>
-        <div className="grid grid-4">
+        <div className="grid grid-3">
           <div className="stat"><div className="stat-label">Coppie</div><div className="stat-value">{data.participants.length}</div></div>
           <div className="stat"><div className="stat-label">Partite</div><div className="stat-value">{data.matches.length}</div></div>
-          <div className="stat"><div className="stat-label">Concluse</div><div className="stat-value">{completedMatches.length}</div></div>
-          <div className="stat"><div className="stat-label">MVP provvisorio</div><div className="stat-value">{mvp.rows[0]?.displayName.split(' ')[0] ?? '—'}</div></div>
+          <div className="stat"><div className="stat-label">Concluse</div><div className="stat-value">{completedAll}</div></div>
         </div>
       </section>
 
@@ -113,6 +117,7 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
           groupMatchesDone={groupMatchesDone}
           groupsConcluded={groupsConcluded}
           qualifiedCount={qualifiedCount}
+          finalsCompleted={finalsCompleted}
         />
       )}
 
@@ -141,26 +146,19 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
         </section>
       )}
 
-      {scheduledMatches.length > 0 && (
+      {groupDisplay.length > 0 && (
         <section className="panel">
-          <RandomizeGroupResultsEasterEgg tournamentId={data.id} count={scheduledMatches.length} />
-          <MatchList matches={scheduledMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable tournamentId={data.id} rules={data.rules} />
-        </section>
-      )}
-      {completedMatches.length > 0 && (
-        <section className="panel">
-          <h2>Risultati Fase Gironi ({completedMatches.length})</h2>
-          <MatchList matches={completedMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} mvpVotes={data.mvpVotes.map((v) => ({ matchId: v.matchId, playerId: v.playerId, rating: v.rating, penalty: v.penalty }))} tournamentId={data.id} rules={data.rules} />
+          <RandomizeGroupResultsEasterEgg tournamentId={data.id} count={groupDisplay.length} remaining={scheduledMatches.length} />
+          <MatchList matches={groupDisplay} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={editing} mvpVotes={data.mvpVotes.map((v) => ({ matchId: v.matchId, playerId: v.playerId, rating: v.rating, penalty: v.penalty }))} tournamentId={editing ? data.id : undefined} rules={editing ? data.rules : undefined} />
         </section>
       )}
       {finalMatches.length > 0 && (
         <section className="panel">
-          <h2>Fase finale</h2>
           <RandomizeFinalResultsEasterEgg tournamentId={data.id} count={finalMatches.length} />
           {finalGroups.map(({ bracket, matches }) => (
             <div key={bracket ?? 'single'}>
               <h3 style={{ marginTop: 14 }}>{bracket ? `Tabellone ${bracketLabel(bracket)}` : 'Tabellone'}</h3>
-              <MatchList matches={matches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable tournamentId={data.id} rules={data.rules} showTime={false} />
+              <MatchList matches={matches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={editing} tournamentId={editing ? data.id : undefined} rules={editing ? data.rules : undefined} showTime={false} />
             </div>
           ))}
         </section>

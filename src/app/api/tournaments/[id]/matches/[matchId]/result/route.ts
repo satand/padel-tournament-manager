@@ -4,6 +4,7 @@ import { prisma } from '@/lib/server/db';
 import { buildRules } from '@/lib/server/serialize';
 import { writeAuditLog } from '@/lib/server/audit';
 import { resolveBracket } from '@/lib/server/bracket';
+import { closedResponse } from '@/lib/server/guards';
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string; matchId: string }> }) {
   const { id, matchId } = await context.params;
@@ -13,6 +14,8 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
   const tournament = await prisma.tournament.findUnique({ where: { id }, include: { settings: true } });
   if (!tournament?.settings) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
+  const locked = closedResponse(tournament);
+  if (locked) return locked;
 
   const match = await prisma.match.findUnique({ where: { id: matchId }, include: { sets: true } });
   if (!match) return NextResponse.json({ error: 'Partita non trovata.' }, { status: 404 });

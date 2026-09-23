@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/server/db';
 import { generateRoundRobinMatches, assignSchedule } from '@/lib/domain/scheduler';
+import { closedResponse } from '@/lib/server/guards';
 import { generateBalancedGroups, defaultGroupNames } from '@/lib/domain/draw';
 import type { Match as DomainMatch, Participant } from '@/lib/domain/types';
 
@@ -20,6 +21,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   });
 
   if (!tournament) return NextResponse.json({ error: 'Torneo non trovato.' }, { status: 404 });
+  const locked = closedResponse(tournament);
+  if (locked) return locked;
   if (tournament.participants.length < 2) return NextResponse.json({ error: 'Servono almeno 2 coppie per generare il calendario.' }, { status: 400 });
 
   if (tournament.matches.length > 0 && !regenerate) {
