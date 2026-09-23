@@ -1,17 +1,19 @@
 import type { Match, MVPStandingRow, RankingRow } from './types';
-import type { BracketPlacementTable } from './finals';
-import { phaseLabel, bracketLabel } from './labels';
+import { phaseLabel } from './labels';
 
 function cell(value: unknown): string {
   const s = String(value ?? '');
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-export function rankingToCsv(rows: RankingRow[]): string {
-  const header = ['Posizione', 'Partecipante', 'PG', 'V', 'P', 'N', 'Punti', 'Set+', 'Set-', 'Diff set', 'Game+', 'Game-', 'Diff game', '% Vittorie', 'Media game'];
+export function rankingToCsv(rows: RankingRow[], phaseReached?: Map<string, string>): string {
+  const header = phaseReached
+    ? ['Posizione', 'Partecipante', 'Fase raggiunta', 'PG', 'V', 'P', 'N', 'Punti', 'Set+', 'Set-', 'Diff set', 'Game+', 'Game-', 'Diff game', '% Vittorie', 'Media game']
+    : ['Posizione', 'Partecipante', 'PG', 'V', 'P', 'N', 'Punti', 'Set+', 'Set-', 'Diff set', 'Game+', 'Game-', 'Diff game', '% Vittorie', 'Media game'];
   const lines = rows.map((row) => [
     row.position,
     row.displayName,
+    ...(phaseReached ? [phaseReached.get(row.participantId) ?? ''] : []),
     row.played,
     row.won,
     row.lost,
@@ -78,15 +80,20 @@ export function mvpToCsv(rows: MVPStandingRow[]): string {
   return [header.join(','), ...lines].join('\n');
 }
 
-export function bracketPlacementsToCsv(tables: BracketPlacementTable[]): string {
-  const header = ['Tabellone', 'Posizione', 'Partecipante', 'Fase raggiunta', 'V', 'P'];
-  const lines = tables.flatMap((table) => table.placements.map((p) => [
-    bracketLabel(table.bracket) || 'Unico',
-    p.position,
-    p.displayName,
-    p.phaseLabel,
-    p.wins,
-    p.losses
+export function bracketRankingsToCsv(entries: { tabellone: string; rows: RankingRow[]; phaseReached: Map<string, string> }[]): string {
+  const header = ['Tabellone', 'Posizione', 'Partecipante', 'Fase raggiunta', 'PG', 'V', 'P', 'N', 'Punti', 'Diff set', 'Diff game'];
+  const lines = entries.flatMap((entry) => entry.rows.map((row) => [
+    entry.tabellone,
+    row.position,
+    row.displayName,
+    entry.phaseReached.get(row.participantId) ?? '',
+    row.played,
+    row.won,
+    row.lost,
+    row.drawn,
+    row.points,
+    row.setDiff,
+    row.gameDiff
   ].map(cell).join(',')));
   return [header.join(','), ...lines].join('\n');
 }

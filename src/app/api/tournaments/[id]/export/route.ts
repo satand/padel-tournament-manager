@@ -3,8 +3,9 @@ import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext, computeMvp } from '@/lib/server/serialize';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant } from '@/lib/domain/mvp';
-import { bracketPlacements } from '@/lib/domain/finals';
-import { bracketPlacementsToCsv, groupRankingsToCsv, matchesToCsv, mvpToCsv, rankingToCsv } from '@/lib/domain/exports';
+import { bracketLabel } from '@/lib/domain/labels';
+import { bracketPhaseReached, bracketPlacements, generalPhaseReached } from '@/lib/domain/finals';
+import { bracketRankingsToCsv, groupRankingsToCsv, matchesToCsv, mvpToCsv, rankingToCsv } from '@/lib/domain/exports';
 
 const TYPES = ['calendar', 'ranking', 'groups', 'finals', 'mvp'] as const;
 type ExportType = (typeof TYPES)[number];
@@ -29,9 +30,20 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   let csv = '';
   if (type === 'calendar') csv = matchesToCsv(ctx.matches, { participantNames: names, groupNames, courtNames });
-  else if (type === 'ranking') csv = rankingToCsv(calculateRanking(ctx.participants, ctx.matches, ctx.rules, avgMvp));
-  else if (type === 'finals') csv = bracketPlacementsToCsv(bracketPlacements(ctx.participants, ctx.matches));
-  else if (type === 'mvp') csv = mvpToCsv(computeMvp(ctx).rows);
+  else if (type === 'ranking') csv = rankingToCsv(calculateRanking(ctx.participants, ctx.matches, ctx.rules, avgMvp), generalPhaseReached(ctx.participants, ctx.matches, ctx.groups.length > 0 ? 'Gironi' : '—'));
+  else if (type === 'finals') {
+    const finals = ctx.matches.filter((m) => !!m.phase && m.phase !== 'group');
+    const entries = bracketPlacements(ctx.participants, ctx.matches).map((t) => {
+      const ms = finals.filter((m) => (m.bracket ?? null) === t.bracket);
+      const ids = new Set(ms.flatMap((m) => [m.participantAId, m.participantBId]).filter((x): x is string => !!x));
+      return {
+        tabellone: t.bracket ? `Tabellone ${bracketLabel(t.bracket)}` : 'Tabellone',
+        rows: calculateRanking(ctx.participants.filter((p) => ids.has(p.id)), ms, ctx.rules, avgMvp),
+        phaseReached: bracketPhaseReached(t)
+      };
+    });
+    csv = bracketRankingsToCsv(entries);
+  } else if (type === 'mvp') csv = mvpToCsv(computeMvp(ctx).rows);
   else {
     const groups = ctx.groups.length > 0
       ? ctx.groups.map((g) => ({ name: g.name, rows: calculateRanking(ctx.participants.filter((p) => p.groupId === g.id), ctx.matches.filter((m) => m.groupId === g.id), ctx.rules, avgMvp) }))

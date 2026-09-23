@@ -1,7 +1,7 @@
 // Logica pura per la fase finale: dimensionamento tabelloni, assegnazione Gold/Silver
 // in base al ranking globale dei qualificati (punti -> diff game -> somma MVP).
 
-import { phaseLabel } from './labels';
+import { phaseLabel, bracketLabel } from './labels';
 import type { Match, Participant } from './types';
 
 export type FinalRound = 'R16' | 'R8' | 'QF' | 'SF' | 'FINAL';
@@ -169,4 +169,29 @@ export function bracketPlacements(participants: Participant[], matches: Match[])
   }
 
   return tables;
+}
+
+// Mappa participantId -> etichetta fase per un singolo tabellone (non prefissata).
+export function bracketPhaseReached(table: BracketPlacementTable): Map<string, string> {
+  return new Map(table.placements.map((p) => [p.participantId, p.phaseLabel]));
+}
+
+// Mappa participantId -> "fase raggiunta" per la classifica generale: chi non arriva ai
+// tabelloni resta su baseLabel (es. 'Gironi'); chi entra nei tabelloni prende la fase,
+// prefissata col tabellone quando c'e' lo split Gold/Silver (due vincitori separati).
+export function generalPhaseReached(participants: Participant[], matches: Match[], baseLabel = 'Gironi'): Map<string, string> {
+  const map = new Map<string, string>(participants.map((p) => [p.id, baseLabel]));
+  const tables = bracketPlacements(participants, matches);
+  for (const table of tables) {
+    const br = table.bracket ? bracketLabel(table.bracket) : null;
+    for (const p of table.placements) {
+      let label = p.phaseLabel;
+      if (br) {
+        if (p.phaseLabel === 'Campione') label = br === 'Gold' ? 'Campione (Gold)' : `Vincitore (${br})`;
+        else label = `${p.phaseLabel} (${br})`;
+      }
+      map.set(p.participantId, label);
+    }
+  }
+  return map;
 }

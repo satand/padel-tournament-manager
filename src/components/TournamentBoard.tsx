@@ -2,11 +2,10 @@ import Link from 'next/link';
 import { computeMvp, type TournamentContext } from '@/lib/server/serialize';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
-import { bracketPlacements } from '@/lib/domain/finals';
+import { bracketPhaseReached, bracketPlacements, generalPhaseReached } from '@/lib/domain/finals';
 import { bracketLabel } from '@/lib/domain/labels';
 import { RankingTable } from '@/components/RankingTable';
 import { MVPTable } from '@/components/MVPTable';
-import { BracketPlacementTable } from '@/components/BracketPlacementTable';
 import { MatchList } from '@/components/MatchList';
 import { RandomizeGroupResultsEasterEgg } from '@/components/RandomizeGroupResultsEasterEgg';
 import { RandomizeFinalResultsEasterEgg } from '@/components/RandomizeFinalResultsEasterEgg';
@@ -76,6 +75,7 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
   if (singleWinner) winners.push({ label: 'Tabellone', name: singleWinner });
 
   const placementTables = bracketPlacements(data.participants, data.matches);
+  const generalPhase = generalPhaseReached(data.participants, data.matches, showGroups ? 'Gironi' : '—');
 
   return (
     <main className="grid">
@@ -133,7 +133,7 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
             <div className="actions" style={{ marginTop: 6 }}>
               <span style={{ color: 'var(--muted)', fontSize: 13, alignSelf: 'center' }}>Esporta CSV:</span>
               <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=calendar`} download>Calendario</a>
-              <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=${showGroups ? 'groups' : 'ranking'}`} download>{showGroups ? 'Classifiche Gironi' : 'Classifica generale'}</a>
+              <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=ranking`} download>Classifica Generale</a>
               {finalMatches.length > 0 && (
                 <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=finals`} download>Classifica Finali</a>
               )}
@@ -167,33 +167,39 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
         />
       )}
 
-      {showGroups ? (
-        data.groups.map((group) => {
-          const groupParticipants = data.participants.filter((p) => p.groupId === group.id);
-          const groupMatches = data.matches.filter((m) => m.groupId === group.id);
-          const ranking = calculateRanking(groupParticipants, groupMatches, data.rules, avgMvp);
-          return (
-            <section className="panel" key={group.id}>
-              <h2>Classifica — {group.name}</h2>
-              {ranking.length > 0 ? <RankingTable rows={ranking} /> : <p style={{ color: 'var(--muted)' }}>Nessuna squadra in questo girone.</p>}
-            </section>
-          );
-        })
-      ) : (
-        overallRanking.length > 0 && (
-          <section className="panel"><h2>Classifica</h2><RankingTable rows={overallRanking} /></section>
-        )
+      {showGroups && data.groups.map((group) => {
+        const groupParticipants = data.participants.filter((p) => p.groupId === group.id);
+        const groupMatches = data.matches.filter((m) => m.groupId === group.id);
+        const ranking = calculateRanking(groupParticipants, groupMatches, data.rules, avgMvp);
+        return (
+          <section className="panel" key={group.id}>
+            <h2>Classifica — {group.name}</h2>
+            {ranking.length > 0 ? <RankingTable rows={ranking} /> : <p style={{ color: 'var(--muted)' }}>Nessuna squadra in questo girone.</p>}
+          </section>
+        );
+      })}
+
+      {overallRanking.length > 0 && (
+        <section className="panel">
+          <h2>Classifica generale</h2>
+          <RankingTable rows={overallRanking} phaseReached={generalPhase} />
+        </section>
       )}
 
       {placementTables.length > 0 && (
         <section className="panel">
           <h2>Classifiche fase finale</h2>
-          {placementTables.map((t) => (
-            <div key={t.bracket ?? 'single'}>
-              <h3 style={{ marginTop: 14 }}>{t.bracket ? `Tabellone ${bracketLabel(t.bracket)}` : 'Tabellone'}</h3>
-              {t.placements.length > 0 ? <BracketPlacementTable rows={t.placements} /> : <p style={{ color: 'var(--muted)' }}>Nessuna squadra.</p>}
-            </div>
-          ))}
+          {finalGroups.map(({ bracket, matches }) => {
+            const table = placementTables.find((t) => t.bracket === bracket);
+            const ids = new Set(matches.flatMap((m) => [m.participantAId, m.participantBId]).filter((x): x is string => !!x));
+            const rows = calculateRanking(data.participants.filter((p) => ids.has(p.id)), matches, data.rules, avgMvp);
+            return (
+              <div key={bracket ?? 'single'}>
+                <h3 style={{ marginTop: 14 }}>{bracket ? `Tabellone ${bracketLabel(bracket)}` : 'Tabellone'}</h3>
+                {rows.length > 0 ? <RankingTable rows={rows} phaseReached={table ? bracketPhaseReached(table) : undefined} /> : <p style={{ color: 'var(--muted)' }}>Nessuna squadra.</p>}
+              </div>
+            );
+          })}
         </section>
       )}
 

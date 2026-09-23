@@ -3,7 +3,7 @@ import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext, computeMvp, type TournamentContext } from '@/lib/server/serialize';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
-import { bracketPlacements } from '@/lib/domain/finals';
+import { bracketPhaseReached, bracketPlacements, generalPhaseReached } from '@/lib/domain/finals';
 import { phaseLabel, matchStatusLabel } from '@/lib/domain/labels';
 import type { Match } from '@/lib/domain/types';
 import { PresentCarousel, type PresentScreen, type PresentSlide } from '@/components/PresentCarousel';
@@ -88,16 +88,20 @@ export default async function PresentTournamentPage({ params }: { params: Promis
 
   const placementTables = bracketPlacements(data.participants, data.matches);
   if (placementTables.length > 0) {
-    screens.push({
-      id: 'finals',
-      label: 'Classifica tabelloni',
-      slides: placementTables.map((t) => ({
-        kind: 'placement',
-        id: `place-${t.bracket ?? 'u'}`,
+    const slides: PresentSlide[] = placementTables.map((t) => {
+      const key = t.bracket ?? 'UNICO';
+      const ms = byBracket.get(key) ?? [];
+      const ids = new Set(ms.flatMap((m) => [m.participantAId, m.participantBId]).filter((x): x is string => !!x));
+      const rows = calculateRanking(data.participants.filter((p) => ids.has(p.id)), ms, data.rules, avgMvp);
+      return {
+        kind: 'standings',
+        id: `place-${key}`,
         title: t.bracket ? `Tabellone ${BRACKET_SHORT[t.bracket]}` : 'Tabellone',
-        rows: t.placements
-      }))
+        rows,
+        phaseReached: bracketPhaseReached(t)
+      };
     });
+    screens.push({ id: 'finals', label: 'Classifica tabelloni', slides });
   }
 
   const bracketOrder = ['GOLD', 'UNICO', 'SILVER'].filter((k) => byBracket.has(k));
@@ -123,7 +127,7 @@ export default async function PresentTournamentPage({ params }: { params: Promis
 
   const overall = calculateRanking(data.participants, data.matches, data.rules, avgMvp);
   if (overall.length > 0) {
-    screens.push({ id: 'standings', label: 'Classifica', slides: [{ kind: 'standings', id: 'standings', title: 'Classifica generale', rows: overall }] });
+    screens.push({ id: 'standings', label: 'Classifica', slides: [{ kind: 'standings', id: 'standings', title: 'Classifica generale', rows: overall, phaseReached: generalPhaseReached(data.participants, data.matches, data.groups.length > 0 ? 'Gironi' : '—') }] });
   }
 
   if (mvp.rows.length > 0) {

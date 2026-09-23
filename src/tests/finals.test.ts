@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bracketPhaseReached,
   bracketPlacements,
   bracketSizeFor,
   clampGoldCount,
   defaultGoldCount,
+  generalPhaseReached,
   eligibleRounds,
   orderQualifiers,
   splitGoldSilver,
@@ -190,5 +192,47 @@ describe('finals — classifica a piazzamento per tabellone', () => {
     ];
     const [t] = bracketPlacements([pt('A'), pt('B'), pt('C'), pt('D')], ms);
     expect(view(t)).toEqual(['1:A:Finalista', '1:C:Finalista', '3:B:Semifinalista', '3:D:Semifinalista']);
+  });
+});
+
+describe('finals — mappe "Fase raggiunta"', () => {
+  const pt = (id: string): Participant => ({ id, displayName: id, type: 'TEAM', playerIds: [] });
+  const mt = (m: Partial<Match> & { id: string }): Match =>
+    ({ participantAId: null, participantBId: null, status: 'SCHEDULED', sets: [], ...m });
+  const all = [pt('A'), pt('B'), pt('C'), pt('D'), pt('Z')];
+
+  it('tabellone unico: etichette senza prefisso, esclusi = baseLabel', () => {
+    const ms = [
+      mt({ id: 'sf1', phase: 'semifinal', roundIndex: 1, participantAId: 'A', participantBId: 'B', status: 'COMPLETED', winnerId: 'A' }),
+      mt({ id: 'sf2', phase: 'semifinal', roundIndex: 1, participantAId: 'C', participantBId: 'D', status: 'COMPLETED', winnerId: 'C' }),
+      mt({ id: 'f', phase: 'final', roundIndex: 2, participantAId: 'A', participantBId: 'C', status: 'COMPLETED', winnerId: 'A' })
+    ];
+    const map = generalPhaseReached(all, ms, 'Gironi');
+    expect(map.get('A')).toBe('Campione');
+    expect(map.get('C')).toBe('Finalista');
+    expect(map.get('B')).toBe('Semifinalista');
+    expect(map.get('Z')).toBe('Gironi');
+  });
+
+  it('split Gold/Silver: prefisso tabellone, argento campione = Vincitore', () => {
+    const ms = [
+      mt({ id: 'gf', bracket: 'GOLD', phase: 'final', roundIndex: 1, participantAId: 'A', participantBId: 'B', status: 'COMPLETED', winnerId: 'A' }),
+      mt({ id: 'sf', bracket: 'SILVER', phase: 'final', roundIndex: 1, participantAId: 'C', participantBId: 'D', status: 'COMPLETED', winnerId: 'D' })
+    ];
+    const map = generalPhaseReached(all, ms, 'Gironi');
+    expect(map.get('A')).toBe('Campione (Gold)');
+    expect(map.get('B')).toBe('Finalista (Gold)');
+    expect(map.get('D')).toBe('Vincitore (Silver)');
+    expect(map.get('C')).toBe('Finalista (Silver)');
+    expect(map.get('Z')).toBe('Gironi');
+  });
+
+  it('bracketPhaseReached mappa pid -> etichetta del singolo tabellone', () => {
+    const ms = [mt({ id: 'f', phase: 'final', roundIndex: 1, participantAId: 'A', participantBId: 'B', status: 'COMPLETED', winnerId: 'A' })];
+    const [t] = bracketPlacements(all, ms);
+    const map = bracketPhaseReached(t);
+    expect(map.get('A')).toBe('Campione');
+    expect(map.get('B')).toBe('Finalista');
+    expect(map.get('Z')).toBeUndefined();
   });
 });
