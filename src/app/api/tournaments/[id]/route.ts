@@ -66,6 +66,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (typeof body[key] === 'boolean') data[key] = body[key];
     }
 
+    // Punti classifica: aggiorna solo win/loss preservando gli altri campi di scoreRules.
+    const pointsWin = asInt(body.pointsWin);
+    const pointsLoss = asInt(body.pointsLoss);
+    if (pointsWin != null || pointsLoss != null) {
+      const current = (tournament.settings?.scoreRules ?? {}) as Record<string, unknown>;
+      const next = { ...current };
+      if (pointsWin != null) next.win = pointsWin;
+      if (pointsLoss != null) next.loss = pointsLoss;
+      data.scoreRules = next;
+    }
+
     if ('startsAt' in body) {
       const raw = body.startsAt;
       startsAt = typeof raw === 'string' && !Number.isNaN(Date.parse(raw)) ? new Date(raw) : null;

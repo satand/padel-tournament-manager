@@ -56,11 +56,13 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
   const [savingProj, setSavingProj] = useState(false);
 
   const [savingStruct, setSavingStruct] = useState(false);
+  const structPoints = (settings?.scoreRules ?? {}) as { win?: number; loss?: number };
   const [struct, setStruct] = useState<{
     scoringMode: string; targetGames: number;
     finalScoringMode: string; finalMaxSets: number; finalGamesPerSet: number; finalTargetGames: number;
     groupCount: number; qualifiedPerGroup: number; finalStartRound: string;
     splitGoldSilver: boolean; mvpEnabled: boolean; mvpThroughPhase: string;
+    pointsWin: number; pointsLoss: number;
   }>({
     scoringMode: settings?.scoringMode === 'SETS' ? 'GAMES_TARGET' : (settings?.scoringMode ?? 'GAMES_TARGET'),
     targetGames: settings?.targetGames ?? 21,
@@ -73,7 +75,9 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
     finalStartRound: settings?.finalStartRound ?? 'SF',
     splitGoldSilver: settings?.splitGoldSilver ?? true,
     mvpEnabled: settings?.mvpEnabled ?? true,
-    mvpThroughPhase: settings?.mvpThroughPhase ?? 'FINAL'
+    mvpThroughPhase: settings?.mvpThroughPhase ?? 'FINAL',
+    pointsWin: structPoints.win ?? 3,
+    pointsLoss: structPoints.loss ?? 0
   });
 
   function setMessageLater(type: 'success' | 'error', text: string) {
@@ -236,7 +240,9 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
           finalStartRound: struct.finalStartRound,
           splitGoldSilver: struct.splitGoldSilver,
           mvpEnabled: struct.mvpEnabled,
-          mvpThroughPhase: struct.mvpThroughPhase
+          mvpThroughPhase: struct.mvpThroughPhase,
+          pointsWin: struct.pointsWin,
+          pointsLoss: struct.pointsLoss
         })
       });
       if (!res.ok) throw new Error('Impossibile salvare le impostazioni strutturali.');
@@ -425,6 +431,8 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
                   <option value="GROUP">Solo gironi</option><option value="R16">Sedicesimi</option><option value="R8">Ottavi</option><option value="QF">Quarti</option><option value="SF">Semifinali</option><option value="FINAL">Finale</option>
                 </select>
               </div>
+              <div className="field"><label>Punti vittoria</label><input type="number" value={struct.pointsWin} onChange={(e) => setStruct({ ...struct, pointsWin: Number(e.target.value) })} /></div>
+              <div className="field"><label>Punti sconfitta</label><input type="number" value={struct.pointsLoss} onChange={(e) => setStruct({ ...struct, pointsLoss: Number(e.target.value) })} /></div>
             </div>
             <div className="actions"><button className="button secondary" disabled={savingStruct} onClick={saveStruct}>{savingStruct ? 'Salvataggio...' : 'Salva impostazioni'}</button></div>
           </>
