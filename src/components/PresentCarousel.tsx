@@ -2,13 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MVPStandingRow, RankingRow } from '@/lib/domain/types';
+import type { BracketPlacement } from '@/lib/domain/finals';
 import { RankingTable } from '@/components/RankingTable';
 import { MVPTable } from '@/components/MVPTable';
+import { BracketPlacementTable } from '@/components/BracketPlacementTable';
 import { PresentAutoRefresh } from '@/components/PresentAutoRefresh';
 
 export type PresentSlide =
   | { kind: 'group'; id: string; title: string; rows: RankingRow[] }
   | { kind: 'standings'; id: string; title: string; rows: RankingRow[] }
+  | { kind: 'placement'; id: string; title: string; rows: BracketPlacement[] }
   | { kind: 'mvp'; id: string; title: string; subtitle?: string; rows: MVPStandingRow[] }
   | { kind: 'champion'; id: string; title: string; champion: string; silver?: string }
   | {
@@ -192,6 +195,13 @@ function renderSlide(slide?: PresentSlide) {
         <div>
           <SlideTitle>{slide.title}</SlideTitle>
           {slide.rows.length > 0 ? <LightPanel><RankingTable rows={slide.rows} /></LightPanel> : <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 18 }}>Nessuna squadra.</p>}
+        </div>
+      );
+    case 'placement':
+      return (
+        <div>
+          <SlideTitle>{slide.title}</SlideTitle>
+          {slide.rows.length > 0 ? <LightPanel><BracketPlacementTable rows={slide.rows} /></LightPanel> : <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 18 }}>Nessuna squadra.</p>}
         </div>
       );
     case 'mvp':

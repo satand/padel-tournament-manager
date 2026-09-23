@@ -6,13 +6,29 @@ describe('export csv', () => {
   it('usa i nomi e fa l\'escape dei valori con virgola', () => {
     const match: Match = { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', phase: 'final', roundIndex: 1, bracket: 'GOLD', sets: [{ setNumber: 1, gamesA: 6, gamesB: 3 }], winnerId: 'a' };
     const names = new Map<string, string>([['a', 'Alpha, Team'], ['b', 'Beta']]);
-    const csv = matchesToCsv([match], names);
+    const csv = matchesToCsv([match], { participantNames: names });
     const header = csv.split('\n')[0];
     expect(header).toContain('Vincitore');
     const row = csv.split('\n')[1];
     expect(row).toContain('"Alpha, Team"'); // virgola => cella quotata
     expect(row).toContain('Beta');
     expect(row).toContain('GOLD');
+    expect(row).toContain('Finale'); // fase in italiano, non 'final'
+  });
+
+  it('mostra Girone e Campo per nome e Orario leggibile', () => {
+    const match: Match = { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'SCHEDULED', phase: 'group', groupId: 'gr1', courtId: 'co1', scheduledAt: '2026-09-21T07:30:00.000Z', sets: [] };
+    const csv = matchesToCsv([match], {
+      participantNames: new Map([['a', 'Alfa'], ['b', 'Bravo']]),
+      groupNames: new Map([['gr1', 'Girone A']]),
+      courtNames: new Map([['co1', 'Campo Centrale']])
+    });
+    const row = csv.split('\n')[1];
+    expect(row).toContain('Girone A');
+    expect(row).toContain('Campo Centrale');
+    expect(row).not.toContain('gr1');
+    expect(row).not.toContain('co1');
+    expect(row).not.toContain('2026-09-21T07:30'); // niente ISO grezzo
   });
 
   it('produce intestazione e riga per la classifica', () => {

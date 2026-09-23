@@ -3,6 +3,7 @@ import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext, computeMvp, type TournamentContext } from '@/lib/server/serialize';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
+import { bracketPlacements } from '@/lib/domain/finals';
 import { phaseLabel, matchStatusLabel } from '@/lib/domain/labels';
 import type { Match } from '@/lib/domain/types';
 import { PresentCarousel, type PresentScreen, type PresentSlide } from '@/components/PresentCarousel';
@@ -83,6 +84,20 @@ export default async function PresentTournamentPage({ params }: { params: Promis
       rows: calculateRanking(data.participants.filter((p) => p.groupId === group.id), data.matches.filter((m) => m.groupId === group.id), data.rules, avgMvp)
     }));
     screens.push({ id: 'groups', label: 'Gironi', slides });
+  }
+
+  const placementTables = bracketPlacements(data.participants, data.matches);
+  if (placementTables.length > 0) {
+    screens.push({
+      id: 'finals',
+      label: 'Classifica tabelloni',
+      slides: placementTables.map((t) => ({
+        kind: 'placement',
+        id: `place-${t.bracket ?? 'u'}`,
+        title: t.bracket ? `Tabellone ${BRACKET_SHORT[t.bracket]}` : 'Tabellone',
+        rows: t.placements
+      }))
+    });
   }
 
   const bracketOrder = ['GOLD', 'UNICO', 'SILVER'].filter((k) => byBracket.has(k));

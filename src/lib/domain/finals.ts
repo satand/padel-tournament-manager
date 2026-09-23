@@ -1,6 +1,9 @@
 // Logica pura per la fase finale: dimensionamento tabelloni, assegnazione Gold/Silver
 // in base al ranking globale dei qualificati (punti -> diff game -> somma MVP).
 
+import { phaseLabel } from './labels';
+import type { Match, Participant } from './types';
+
 export type FinalRound = 'R16' | 'R8' | 'QF' | 'SF' | 'FINAL';
 
 export const FINAL_ROUND_SIZE: Record<FinalRound, number> = {
@@ -74,4 +77,96 @@ export function splitGoldSilver<T extends ComparableQualified>(ordered: T[], gol
   if (ordered.length < 4) return { gold: ordered, silver: [] };
   const g = clampGoldCount(ordered.length, goldCount);
   return { gold: ordered.slice(0, g), silver: ordered.slice(g) };
+}
+
+// ---- Classifica a piazzamento (fase raggiunta) per tabellone ----
+
+export type BracketPlacement = {
+  position: number;
+  participantId: string;
+  displayName: string;
+  phaseLabel: string;
+  wins: number;
+  losses: number;
+};
+
+export type BracketPlacementTable = {
+  bracket: 'GOLD' | 'SILVER' | null;
+  placements: BracketPlacement[];
+};
+
+const PLACEMENT_DONE: string[] = ['COMPLETED', 'WALKOVER', 'RETIRED'];
+const PLACEMENT_BRACKETS: ('GOLD' | 'SILVER' | null)[] = ['GOLD', 'SILVER', null];
+
+function placementLabel(phase: string | undefined, champion: boolean): string {
+  if (champion) return 'Campione';
+  const p = (phase ?? 'group').toLowerCase();
+  if (p === 'final') return 'Finalista';
+  if (p === 'semifinal') return 'Semifinalista';
+  if (p === 'quarterfinal') return 'Quarti di finale';
+  if (p === 'third-place-final') return 'Finale 3° posto';
+  return phaseLabel(phase);
+}
+
+// Classifica per tabellone: Campione primo, poi fase/round raggiunto (chi e' arrivato
+// piu lontano precede), poi vittorie, poi nome; pari-merito a pari fase (ranking 1,2,3,3,5...).
+export function bracketPlacements(participants: Participant[], matches: Match[]): BracketPlacementTable[] {
+  const finals = matches.filter((m) => !!m.phase && m.phase !== 'group');
+  if (finals.length === 0) return [];
+
+  const nameById = new Map(participants.map((p) => [p.id, p.displayName]));
+  const tables: BracketPlacementTable[] = [];
+
+  for (const bracket of PLACEMENT_BRACKETS) {
+    const ms = finals.filter((m) => (m.bracket ?? null) === bracket);
+    if (ms.length === 0) continue;
+
+    type Info = { id: string; name: string; maxRound: number; maxPhase?: string; wins: number; losses: number };
+    const info = new Map<string, Info>();
+    const ensure = (id: string): Info => {
+      let entry = info.get(id);
+      if (!entry) {
+        entry = { id, name: nameById.get(id) ?? id, maxRound: 0, maxPhase: undefined, wins: 0, losses: 0 };
+        info.set(id, entry);
+      }
+      return entry;
+    };
+
+    let championId: string | null = null;
+    for (const m of ms) {
+      const round = m.roundIndex ?? 0;
+      for (const id of [m.participantAId, m.participantBId]) {
+        if (!id) continue;
+        const e = ensure(id);
+        if (round >= e.maxRound) { e.maxRound = round; e.maxPhase = m.phase ?? undefined; }
+      }
+      const done = PLACEMENT_DONE.includes(m.status);
+      if (done && m.participantAId && m.participantBId) {
+        if (m.winnerId === m.participantAId) { ensure(m.participantAId).wins += 1; ensure(m.participantBId).losses += 1; }
+        else if (m.winnerId === m.participantBId) { ensure(m.participantBId).wins += 1; ensure(m.participantAId).losses += 1; }
+      }
+      if (m.phase === 'final' && done && m.winnerId) championId = m.winnerId;
+    }
+
+    const rows = [...info.values()].map((e) => ({ ...e, champion: e.id === championId }));
+    rows.sort((a, b) => {
+      if (a.champion !== b.champion) return a.champion ? -1 : 1;
+      if (b.maxRound !== a.maxRound) return b.maxRound - a.maxRound;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return a.name.localeCompare(b.name);
+    });
+
+    const placements: BracketPlacement[] = [];
+    let pos = 0;
+    let prevRound: number | null = null;
+    rows.forEach((r, idx) => {
+      if (r.champion) { pos = 1; prevRound = null; }
+      else if (r.maxRound !== prevRound) { pos = idx + 1; prevRound = r.maxRound; }
+      placements.push({ position: pos, participantId: r.id, displayName: r.name, phaseLabel: placementLabel(r.maxPhase, r.champion), wins: r.wins, losses: r.losses });
+    });
+
+    tables.push({ bracket, placements });
+  }
+
+  return tables;
 }

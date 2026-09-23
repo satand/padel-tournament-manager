@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bracketPlacements,
   bracketSizeFor,
   clampGoldCount,
   defaultGoldCount,
@@ -10,7 +11,7 @@ import {
 } from '@/lib/domain/finals';
 import { buildFinalBracket } from '@/lib/domain/scheduler';
 import { sumMvpRatingByParticipant } from '@/lib/domain/mvp';
-import type { MVPVote, Participant } from '@/lib/domain/types';
+import type { Match, MVPVote, Participant } from '@/lib/domain/types';
 
 const q = (id: string, points: number, gameDiff: number, mvpSum = 0): ComparableQualified =>
   ({ id, displayName: id, points, gameDiff, mvpSum });
@@ -119,5 +120,75 @@ describe('mvp — somma media voto per squadra', () => {
   it('vale 0 per chi non ha voti', () => {
     const sums = sumMvpRatingByParticipant(participants, [vote('a', 7)]);
     expect(sums['T2']).toBe(0);
+  });
+});
+
+describe('finals — classifica a piazzamento per tabellone', () => {
+  const pt = (id: string): Participant => ({ id, displayName: id, type: 'TEAM', playerIds: [] });
+  const mt = (m: Partial<Match> & { id: string }): Match =>
+    ({ participantAId: null, participantBId: null, status: 'SCHEDULED', sets: [], ...m });
+  const view = (p: ReturnType<typeof bracketPlacements>[number]) =>
+    p.placements.map((x) => `${x.position}:${x.displayName}:${x.phaseLabel}`);
+
+  it('nessun tabellone se non ci sono partite di fase finale', () => {
+    const ms = [mt({ id: 'g', phase: 'group', groupId: 'G1', participantAId: 'A', participantBId: 'B', status: 'COMPLETED', winnerId: 'A' })];
+    expect(bracketPlacements([pt('A'), pt('B')], ms)).toEqual([]);
+  });
+
+  it('tabellone unico: Campione primo, poi fase raggiunta, pari-merito a pari round', () => {
+    const ms = [
+      mt({ id: 'sf1', phase: 'semifinal', roundIndex: 1, participantAId: 'A', participantBId: 'B', status: 'COMPLETED', winnerId: 'A' }),
+      mt({ id: 'sf2', phase: 'semifinal', roundIndex: 1, participantAId: 'C', participantBId: 'D', status: 'COMPLETED', winnerId: 'C' }),
+      mt({ id: 'f', phase: 'final', roundIndex: 2, participantAId: 'A', participantBId: 'C', status: 'COMPLETED', winnerId: 'A' })
+    ];
+    const [t] = bracketPlacements([pt('A'), pt('B'), pt('C'), pt('D')], ms);
+    expect(t.bracket).toBeNull();
+    expect(view(t)).toEqual(['1:A:Campione', '2:C:Finalista', '3:B:Semifinalista', '3:D:Semifinalista']);
+    const rows = Object.fromEntries(t.placements.map((p) => [p.displayName, p]));
+    expect(rows.A.wins).toBe(2); expect(rows.A.losses).toBe(0);
+    expect(rows.C.wins).toBe(1); expect(rows.C.losses).toBe(1);
+    expect(rows.B.wins).toBe(0); expect(rows.B.losses).toBe(1);
+  });
+
+  it('separa tabelloni Gold e Silver con campioni indipendenti', () => {
+    const ms = [
+      mt({ id: 'gf', bracket: 'GOLD', phase: 'final', roundIndex: 2, participantAId: 'A', participantBId: 'B', status: 'COMPLETED', winnerId: 'A' }),
+      mt({ id: 'sf', bracket: 'SILVER', phase: 'final', roundIndex: 2, participantAId: 'C', participantBId: 'D', status: 'COMPLETED', winnerId: 'D' })
+    ];
+    const tables = bracketPlacements([pt('A'), pt('B'), pt('C'), pt('D')], ms);
+    expect(tables.map((t) => t.bracket)).toEqual(['GOLD', 'SILVER']);
+    expect(view(tables[0])[0]).toBe('1:A:Campione');
+    expect(view(tables[1])[0]).toBe('1:D:Campione');
+  });
+
+  it('ignora le partite di girone', () => {
+    const ms = [
+      mt({ id: 'g', phase: 'group', groupId: 'G1', participantAId: 'X', participantBId: 'Y', status: 'COMPLETED', winnerId: 'X' }),
+      mt({ id: 'f', phase: 'final', roundIndex: 1, participantAId: 'A', participantBId: 'B', status: 'COMPLETED', winnerId: 'A' })
+    ];
+    const [t] = bracketPlacements([pt('A'), pt('B'), pt('X'), pt('Y')], ms);
+    expect(t.placements.map((p) => p.displayName).sort()).toEqual(['A', 'B']);
+  });
+
+  it('BYE/WALKOVER a tavolino non generano V ne P', () => {
+    const ms = [
+      mt({ id: 'r1a', phase: 'quarterfinal', roundIndex: 1, participantAId: 'A', participantBId: 'B', status: 'COMPLETED', winnerId: 'A' }),
+      mt({ id: 'r1b', phase: 'quarterfinal', roundIndex: 1, participantAId: 'C', participantBId: null, status: 'WALKOVER', winnerId: 'C' }),
+      mt({ id: 'f', phase: 'final', roundIndex: 2, participantAId: 'A', participantBId: 'C', status: 'COMPLETED', winnerId: 'A' })
+    ];
+    const [t] = bracketPlacements([pt('A'), pt('B'), pt('C')], ms);
+    const rows = Object.fromEntries(t.placements.map((p) => [p.displayName, p]));
+    expect(rows.C.wins).toBe(0); expect(rows.C.losses).toBe(1);
+    expect(rows.A.wins).toBe(2);
+  });
+
+  it('con finale da giocare i finalisti sono pari in testa senza Campione', () => {
+    const ms = [
+      mt({ id: 'sf1', phase: 'semifinal', roundIndex: 1, participantAId: 'A', participantBId: 'B', status: 'COMPLETED', winnerId: 'A' }),
+      mt({ id: 'sf2', phase: 'semifinal', roundIndex: 1, participantAId: 'C', participantBId: 'D', status: 'COMPLETED', winnerId: 'C' }),
+      mt({ id: 'f', phase: 'final', roundIndex: 2, participantAId: 'A', participantBId: 'C', status: 'SCHEDULED' })
+    ];
+    const [t] = bracketPlacements([pt('A'), pt('B'), pt('C'), pt('D')], ms);
+    expect(view(t)).toEqual(['1:A:Finalista', '1:C:Finalista', '3:B:Semifinalista', '3:D:Semifinalista']);
   });
 });

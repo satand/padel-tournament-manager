@@ -3,9 +3,10 @@ import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext, computeMvp } from '@/lib/server/serialize';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant } from '@/lib/domain/mvp';
-import { groupRankingsToCsv, matchesToCsv, mvpToCsv, rankingToCsv } from '@/lib/domain/exports';
+import { bracketPlacements } from '@/lib/domain/finals';
+import { bracketPlacementsToCsv, groupRankingsToCsv, matchesToCsv, mvpToCsv, rankingToCsv } from '@/lib/domain/exports';
 
-const TYPES = ['calendar', 'ranking', 'groups', 'mvp'] as const;
+const TYPES = ['calendar', 'ranking', 'groups', 'finals', 'mvp'] as const;
 type ExportType = (typeof TYPES)[number];
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -22,11 +23,14 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   const ctx = toDomainContext(tournament);
   const names = new Map(ctx.participants.map((p) => [p.id, p.displayName]));
+  const groupNames = new Map(ctx.groups.map((g) => [g.id, g.name]));
+  const courtNames = new Map(ctx.courts.map((c) => [c.id, c.name]));
   const avgMvp = averageMvpRatingByParticipant(ctx.participants, ctx.mvpVotes);
 
   let csv = '';
-  if (type === 'calendar') csv = matchesToCsv(ctx.matches, names);
+  if (type === 'calendar') csv = matchesToCsv(ctx.matches, { participantNames: names, groupNames, courtNames });
   else if (type === 'ranking') csv = rankingToCsv(calculateRanking(ctx.participants, ctx.matches, ctx.rules, avgMvp));
+  else if (type === 'finals') csv = bracketPlacementsToCsv(bracketPlacements(ctx.participants, ctx.matches));
   else if (type === 'mvp') csv = mvpToCsv(computeMvp(ctx).rows);
   else {
     const groups = ctx.groups.length > 0
