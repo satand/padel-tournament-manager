@@ -56,10 +56,12 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
 
   const [calendario, setCalendario] = useState({
     courtsCount: settings?.courtsCount ?? 2,
+    warmUpMinutes: settings?.warmUpMinutes ?? 5,
     matchDurationMinutes: settings?.matchDurationMinutes ?? 30,
-    minRestMinutes: settings?.minRestMinutes ?? 15,
-    maxMatchesPerPlayerDay: settings?.maxMatchesPerPlayerDay ?? 6
+    changeoverMinutes: settings?.changeoverMinutes ?? 15
   });
+  const [maxMatchesPerDay, setMaxMatchesPerDay] = useState<number>(settings?.maxMatchesPerPlayerDay ?? 6);
+  const [maxMatchesUnlimited, setMaxMatchesUnlimited] = useState(settings?.maxMatchesPerPlayerDay == null);
   const [savingCal, setSavingCal] = useState(false);
   const [startDate, setStartDate] = useState(toInputDate(startsAt));
   const [savingDate, setSavingDate] = useState(false);
@@ -184,7 +186,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
       const res = await fetch(`/api/tournaments/${tournamentId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(calendario)
+        body: JSON.stringify({ ...calendario, maxMatchesPerPlayerDay: maxMatchesUnlimited ? null : maxMatchesPerDay })
       });
       if (!res.ok) throw new Error('Impossibile salvare il calendario.');
       setMessageLater('success', 'Impostazioni calendario salvate.');
@@ -344,6 +346,15 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         ) : (
           <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}>Modificabile solo quando il torneo è in bozza.</p>
         )}
+      </div>
+
+      <div style={{ marginTop: 20 }}>
+        <h3>Schermo di proiezione</h3>
+        <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Secondi di permanenza di ogni slide nel carosello della schermata di proiezione (2–120).</p>
+        <div className="form-grid">
+          <div className="field"><label>Cambio automatico slide (secondi)</label><input type="number" min={2} max={120} value={presentSlideSeconds} onChange={(e) => setPresentSlideSeconds(e.target.value === '' ? '' : Number(e.target.value))} style={inputStyle} /></div>
+        </div>
+        <div className="actions"><button className="button secondary" disabled={savingProj} onClick={saveProiezione}>{savingProj ? 'Salvataggio...' : 'Salva proiezione'}</button></div>
       </div>
 
       <div className="grid grid-2">
@@ -521,20 +532,20 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Parametri applicati alla generazione. Puoi modificarli e rigenerare in qualsiasi momento (i risultati vanno persi solo se rigeneri).</p>
         <div className="form-grid">
           <div className="field"><label>Nº campi</label><input type="number" min={1} value={calendario.courtsCount} onChange={(e) => setCalendario({ ...calendario, courtsCount: Number(e.target.value) })} style={inputStyle} /></div>
+          <div className="field"><label>Riscaldamento (min)</label><input type="number" min={0} value={calendario.warmUpMinutes} onChange={(e) => setCalendario({ ...calendario, warmUpMinutes: Number(e.target.value) })} style={inputStyle} /></div>
           <div className="field"><label>Durata match (min)</label><input type="number" min={5} value={calendario.matchDurationMinutes} onChange={(e) => setCalendario({ ...calendario, matchDurationMinutes: Number(e.target.value) })} style={inputStyle} /></div>
-          <div className="field"><label>Recupero minimo (min)</label><input type="number" min={0} value={calendario.minRestMinutes} onChange={(e) => setCalendario({ ...calendario, minRestMinutes: Number(e.target.value) })} style={inputStyle} /></div>
-          <div className="field"><label>Max partite/giorno</label><input type="number" min={1} value={calendario.maxMatchesPerPlayerDay} onChange={(e) => setCalendario({ ...calendario, maxMatchesPerPlayerDay: Number(e.target.value) })} style={inputStyle} /></div>
+          <div className="field"><label>Tempo di cambio (min)</label><input type="number" min={0} value={calendario.changeoverMinutes} onChange={(e) => setCalendario({ ...calendario, changeoverMinutes: Number(e.target.value) })} style={inputStyle} /></div>
+          <div className="field"><label>Max partite/giorno</label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="number" min={1} value={maxMatchesPerDay} disabled={maxMatchesUnlimited} onChange={(e) => setMaxMatchesPerDay(Number(e.target.value))} style={{ ...inputStyle, opacity: maxMatchesUnlimited ? 0.5 : 1, width: 80 }} />
+              <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={maxMatchesUnlimited} onChange={(e) => setMaxMatchesUnlimited(e.target.checked)} /> Senza limite
+              </label>
+            </div>
+          </div>
         </div>
+        <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>Ogni slot campo = riscaldamento + durata match + tempo di cambio ({calendario.warmUpMinutes + calendario.matchDurationMinutes + calendario.changeoverMinutes} min). Il tempo di cambio è l'intervallo per l'uscita delle squadre e l'entrata delle successive. "Senza limite" gioca a oltranza.</p>
         <div className="actions"><button className="button secondary" disabled={savingCal} onClick={saveCalendario}>{savingCal ? 'Salvataggio...' : 'Salva calendario'}</button></div>
-      </div>
-
-      <div style={{ marginTop: 20 }}>
-        <h3>Schermo di proiezione</h3>
-        <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Secondi di permanenza di ogni slide nel carosello della schermata di proiezione (2–120).</p>
-        <div className="form-grid">
-          <div className="field"><label>Cambio automatico slide (secondi)</label><input type="number" min={2} max={120} value={presentSlideSeconds} onChange={(e) => setPresentSlideSeconds(e.target.value === '' ? '' : Number(e.target.value))} style={inputStyle} /></div>
-        </div>
-        <div className="actions"><button className="button secondary" disabled={savingProj} onClick={saveProiezione}>{savingProj ? 'Salvataggio...' : 'Salva proiezione'}</button></div>
       </div>
 
       <div style={{ marginTop: 20 }}>

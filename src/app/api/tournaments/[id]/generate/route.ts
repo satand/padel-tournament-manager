@@ -83,9 +83,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     participants: domainParticipants,
     courts: courts.map((c) => ({ id: c.id, name: c.name, order: c.order })),
     startsAt: tournament.startsAt?.toISOString() ?? new Date().toISOString(),
+    warmUpMinutes: tournament.settings?.warmUpMinutes ?? 5,
     matchDurationMinutes: tournament.settings?.matchDurationMinutes ?? 30,
-    minRestMinutes: tournament.settings?.minRestMinutes ?? 15,
-    maxMatchesPerPlayerDay: tournament.settings?.maxMatchesPerPlayerDay ?? 6
+    changeoverMinutes: tournament.settings?.changeoverMinutes ?? 15,
+    maxMatchesPerPlayerDay: tournament.settings ? tournament.settings.maxMatchesPerPlayerDay : 6
   });
 
   for (const match of scheduledMatches) {

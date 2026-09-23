@@ -10,7 +10,7 @@ function pickEnum<T extends string>(value: unknown, allowed: readonly T[]): T | 
   return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : undefined;
 }
 
-const CALENDAR_FIELDS = ['courtsCount', 'matchDurationMinutes', 'minRestMinutes', 'maxMatchesPerPlayerDay'] as const;
+const CALENDAR_FIELDS = ['courtsCount', 'warmUpMinutes', 'matchDurationMinutes', 'changeoverMinutes'] as const;
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -33,6 +33,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   for (const key of CALENDAR_FIELDS) {
     const value = asInt(body[key]);
     if (value != null) data[key] = value;
+  }
+
+  // Max partite/giorno: ammette null = nessun limite ("senza limite").
+  if ('maxMatchesPerPlayerDay' in body) {
+    const v = body.maxMatchesPerPlayerDay;
+    if (v === null) data.maxMatchesPerPlayerDay = null;
+    else {
+      const i = asInt(v);
+      if (i != null) data.maxMatchesPerPlayerDay = i;
+    }
   }
 
   // Presentazione: tempo di cambio slide del carosello, modificabile in ogni stato.

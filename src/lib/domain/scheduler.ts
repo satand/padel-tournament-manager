@@ -5,9 +5,10 @@ export type ScheduleInput = {
   participants: Participant[];
   courts: Court[];
   startsAt: string;
+  warmUpMinutes: number;
   matchDurationMinutes: number;
-  minRestMinutes: number;
-  maxMatchesPerPlayerDay: number;
+  changeoverMinutes: number;
+  maxMatchesPerPlayerDay: number | null;
 };
 
 export function generateRoundRobinMatches(participants: Participant[], groupId?: string): Match[] {
@@ -104,6 +105,7 @@ export function assignSchedule(matches: Match[], input: ScheduleInput): Match[] 
   const playerLastTime = new Map<string, Date>();
   const playerMatchCount = new Map<string, number>();
   const sortedCourts = [...input.courts].sort((a, b) => a.order - b.order);
+  const slot = input.warmUpMinutes + input.matchDurationMinutes + input.changeoverMinutes;
   let cursor = new Date(input.startsAt);
   let courtIndex = 0;
 
@@ -115,9 +117,11 @@ export function assignSchedule(matches: Match[], input: ScheduleInput): Match[] 
       const hasRest = participants.every((id) => {
         const last = playerLastTime.get(id);
         if (!last) return true;
-        return minutesBetween(last, cursor) >= input.matchDurationMinutes + input.minRestMinutes;
+        return minutesBetween(last, cursor) >= slot;
       });
-      const underDailyLimit = participants.every((id) => (playerMatchCount.get(id) ?? 0) < input.maxMatchesPerPlayerDay);
+      const underDailyLimit = input.maxMatchesPerPlayerDay == null
+        ? true
+        : participants.every((id) => (playerMatchCount.get(id) ?? 0) < input.maxMatchesPerPlayerDay!);
       if (hasRest && underDailyLimit) {
         const assigned = { ...match, courtId: court.id, scheduledAt: cursor.toISOString() };
         scheduled.push(assigned);
@@ -126,11 +130,11 @@ export function assignSchedule(matches: Match[], input: ScheduleInput): Match[] 
           playerMatchCount.set(id, (playerMatchCount.get(id) ?? 0) + 1);
         }
         courtIndex += 1;
-        if (courtIndex % sortedCourts.length === 0) cursor = addMinutes(cursor, input.matchDurationMinutes);
+        if (courtIndex % sortedCourts.length === 0) cursor = addMinutes(cursor, slot);
         break;
       }
       courtIndex += 1;
-      if (courtIndex % sortedCourts.length === 0) cursor = addMinutes(cursor, input.matchDurationMinutes);
+      if (courtIndex % sortedCourts.length === 0) cursor = addMinutes(cursor, slot);
       attempts += 1;
     }
   }

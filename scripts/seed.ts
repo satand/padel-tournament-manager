@@ -25,7 +25,8 @@ async function main() {
         create: {
           courtsCount: 2,
           matchDurationMinutes: 30,
-          minRestMinutes: 10,
+          warmUpMinutes: 5,
+          changeoverMinutes: 10,
           setsPerMatch: 1,
           gamesPerSet: 6,
           tieBreakEnabled: true,

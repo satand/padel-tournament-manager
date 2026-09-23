@@ -132,8 +132,9 @@ model TournamentSettings {
   maxPlayers             Int?
   courtsCount            Int             @default(2)
   matchDurationMinutes   Int             @default(30)
-  maxMatchesPerPlayerDay Int             @default(6)
-  minRestMinutes         Int             @default(15)
+  maxMatchesPerPlayerDay Int?            @default(6)
+  warmUpMinutes          Int             @default(5)
+  changeoverMinutes      Int             @default(15)
   setsPerMatch           Int             @default(1)
   gamesPerSet            Int             @default(6)
   allowDraws             Boolean         @default(false)
