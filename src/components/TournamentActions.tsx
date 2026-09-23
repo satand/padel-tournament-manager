@@ -570,30 +570,34 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         <div className="actions"><button className="button secondary" disabled={savingCal} onClick={saveCalendario}>{savingCal ? 'Salvataggio...' : 'Salva calendario'}</button></div>
       </div>
 
-      <SectionDivider />
-      <div>
-        <h3>Genera calendario</h3>
-        <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 8 }}>
-          Crea i gironi bilanciati per livello e le partite di girone. Attive: {participants.length} coppie{groups.length > 0 ? `, ${groups.length} gironi` : ''}.
-        </p>
-        <div className="actions">
-          {matchesCount === 0 && (
-            <button className="button" disabled={generating || participants.length < 2} onClick={() => handleGenerate(false)}>{generating ? 'Generazione...' : 'Genera calendario'}</button>
-          )}
-          {matchesCount > 0 && !confirmRegenerate && (
-            <button className="button secondary" disabled={generating || participants.length < 2} onClick={() => setConfirmRegenerate(true)}>Rigenera calendario</button>
-          )}
-          {matchesCount > 0 && confirmRegenerate && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca' }}>
-              <span style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 700 }}>Le {matchesCount} partite e i risultati saranno eliminati. Continuare?</span>
-              <button className="button" disabled={generating} style={{ background: 'var(--danger)', padding: '6px 14px', fontSize: 13 }} onClick={() => handleGenerate(true)}>{generating ? 'Rigenerazione...' : 'Sì, rigenera'}</button>
-              <button className="button secondary" style={{ padding: '6px 14px', fontSize: 13 }} onClick={() => setConfirmRegenerate(false)}>Annulla</button>
-            </span>
-          )}
-        </div>
-        {participants.length < 2 && <p style={{ color: 'var(--warning)', fontSize: 13, marginTop: 8 }}>Servono almeno 2 coppie.</p>}
-        {status === 'DRAFT' && matchesCount === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>Suggerimento: aggiungi le coppie con il livello, poi genera i gironi.</p>}
-      </div>
+      {finalsCount === 0 && (
+        <>
+          <SectionDivider />
+          <div>
+            <h3>Fase a Gironi</h3>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 8 }}>
+              Crea i gironi bilanciati per livello e le partite di girone. Attive: {participants.length} coppie{groups.length > 0 ? `, ${groups.length} gironi` : ''}.
+            </p>
+            <div className="actions">
+              {matchesCount === 0 && (
+                <button className="button" disabled={generating || participants.length < 2} onClick={() => handleGenerate(false)}>{generating ? 'Generazione...' : 'Genera gironi'}</button>
+              )}
+              {matchesCount > 0 && !confirmRegenerate && (
+                <button className="button secondary" disabled={generating || participants.length < 2} onClick={() => setConfirmRegenerate(true)}>Rigenera gironi</button>
+              )}
+              {matchesCount > 0 && confirmRegenerate && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca' }}>
+                  <span style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 700 }}>Le {matchesCount} partite dei gironi e i risultati saranno eliminati. Continuare?</span>
+                  <button className="button" disabled={generating} style={{ background: 'var(--danger)', padding: '6px 14px', fontSize: 13 }} onClick={() => handleGenerate(true)}>{generating ? 'Rigenerazione...' : 'Sì, rigenera'}</button>
+                  <button className="button secondary" style={{ padding: '6px 14px', fontSize: 13 }} onClick={() => setConfirmRegenerate(false)}>Annulla</button>
+                </span>
+              )}
+            </div>
+            {participants.length < 2 && <p style={{ color: 'var(--warning)', fontSize: 13, marginTop: 8 }}>Servono almeno 2 coppie.</p>}
+            {status === 'DRAFT' && matchesCount === 0 && <p style={{ color: 'var(--muted)', fontSize: 13, marginTop: 8 }}>Suggerimento: aggiungi le coppie con il livello, poi genera i gironi.</p>}
+          </div>
+        </>
+      )}
 
       <SectionDivider />
       <div>

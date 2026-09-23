@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { Match, Participant, TournamentRules } from '@/lib/domain/types';
 import { validateMatchResult } from '@/lib/domain/validators';
 import { rulesForPhase } from '@/lib/domain/scoring';
-import { phaseLabel } from '@/lib/domain/labels';
+import { phaseLabel, bracketLabel } from '@/lib/domain/labels';
 
 type MvpInfo = { matchId: string; playerId: string; rating: number; penalty?: number };
 
@@ -19,9 +19,10 @@ type Props = {
   tournamentId?: string;
   rules?: TournamentRules;
   mvpVotes?: MvpInfo[];
+  showTime?: boolean;
 };
 
-export function MatchList({ matches, participants, players = [], courtNames = {}, groupNames = {}, editable = false, tournamentId, rules, mvpVotes = [] }: Props) {
+export function MatchList({ matches, participants, players = [], courtNames = {}, groupNames = {}, editable = false, tournamentId, rules, mvpVotes = [], showTime = true }: Props) {
   const name = new Map(participants.map((p) => [p.id, p.displayName]));
   const playerNameMap = new Map(players.map((p) => [p.id, p.displayName]));
   return (
@@ -42,6 +43,7 @@ export function MatchList({ matches, participants, players = [], courtNames = {}
             participants={participants}
             players={players}
             matchMvp={matchMvp.map((v) => ({ ...v, playerName: playerNameMap.get(v.playerId) ?? v.playerId }))}
+            showTime={showTime}
           />
         );
       })}
@@ -61,9 +63,10 @@ type CardProps = {
   participants: Participant[];
   players: { id: string; displayName: string }[];
   matchMvp: { playerId: string; playerName: string; rating: number; penalty?: number }[];
+  showTime: boolean;
 };
 
-function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, tournamentId, rules, participants, players, matchMvp }: CardProps) {
+function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, tournamentId, rules, participants, players, matchMvp, showTime }: CardProps) {
   const router = useRouter();
   const isCompleted = ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(match.status);
   const canEdit = editable || (!!tournamentId && !!rules && isCompleted);
@@ -151,10 +154,11 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
   return (
     <article className="match-card">
       <div className="match-meta">
+        {match.bracket ? <span>{bracketLabel(match.bracket)}</span> : null}
         <span>{match.groupId ? (groupNames[match.groupId] ?? phaseLabel(match.phase)) : phaseLabel(match.phase)}</span>
         <span>Turno {match.roundIndex}</span>
         <span>{courtName ?? 'Campo da assegnare'}</span>
-        <span>{match.scheduledAt ? new Date(match.scheduledAt).toLocaleString('it-IT') : 'Orario da assegnare'}</span>
+        {showTime ? <span>{match.scheduledAt ? new Date(match.scheduledAt).toLocaleString('it-IT') : 'Orario da assegnare'}</span> : null}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <div>

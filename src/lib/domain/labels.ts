@@ -23,6 +23,12 @@ export function phaseLabel(phase?: string): string {
   }
 }
 
+export function bracketLabel(bracket?: string | null): string {
+  if (bracket === 'GOLD') return 'Gold';
+  if (bracket === 'SILVER') return 'Silver';
+  return '';
+}
+
 const STATUS_LABEL: Record<MatchStatus, string> = {
   SCHEDULED: 'In programma',
   IN_PROGRESS: 'In corso',

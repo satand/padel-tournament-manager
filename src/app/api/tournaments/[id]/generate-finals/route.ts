@@ -91,6 +91,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   let created = 0;
+  const finalCourts = tournament.courts;
+  let courtIndex = 0;
   const createBracket = async (arr: ComparableQualified[], bracket: 'GOLD' | 'SILVER' | null, round: FinalRound | null) => {
     if (arr.length < 2) return;
     const entrants = arr.map((q) => byId.get(q.id)!).filter(Boolean);
@@ -100,6 +102,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     for (const m of bm) {
       const parentA = slotParent(m.a);
       const parentB = slotParent(m.b);
+      const courtId = m.status === 'SCHEDULED' && finalCourts.length > 0 ? finalCourts[courtIndex++ % finalCourts.length].id : null;
       const createdMatch = await prisma.match.create({
         data: {
           tournamentId: id,
@@ -108,6 +111,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           status: m.status,
           winnerId: m.winnerId ?? null,
           groupId: null,
+          courtId,
           phase: m.phase,
           phaseWeight: m.phaseWeight,
           roundIndex: m.roundIndex,

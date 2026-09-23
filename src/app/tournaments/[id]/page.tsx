@@ -4,6 +4,7 @@ import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext, computeMvp, type TournamentContext } from '@/lib/server/serialize';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
+import { bracketLabel } from '@/lib/domain/labels';
 import { RankingTable } from '@/components/RankingTable';
 import { MVPTable } from '@/components/MVPTable';
 import { MatchList } from '@/components/MatchList';
@@ -36,6 +37,9 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
   const finalMatches = data.matches
     .filter(isFinal)
     .sort((a, b) => String(a.bracket ?? '').localeCompare(String(b.bracket ?? '')) || (a.roundIndex ?? 0) - (b.roundIndex ?? 0));
+  const finalGroups = (['GOLD', 'SILVER', null] as const)
+    .map((bracket) => ({ bracket, matches: finalMatches.filter((m) => (m.bracket ?? null) === bracket) }))
+    .filter((g) => g.matches.length > 0);
   const scheduledMatches = groupOnly.filter((m) => ['SCHEDULED', 'IN_PROGRESS'].includes(m.status));
   const completedMatches = groupOnly.filter((m) => ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(m.status));
   const otherMatches = groupOnly.filter((m) => ['CANCELLED', 'POSTPONED'].includes(m.status));
@@ -145,14 +149,20 @@ export default async function TournamentDashboardPage({ params }: { params: Prom
       )}
       {completedMatches.length > 0 && (
         <section className="panel">
-          <h2>Risultati ({completedMatches.length})</h2>
+          <h2>Risultati Fase Gironi ({completedMatches.length})</h2>
           <MatchList matches={completedMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} mvpVotes={data.mvpVotes.map((v) => ({ matchId: v.matchId, playerId: v.playerId, rating: v.rating, penalty: v.penalty }))} tournamentId={data.id} rules={data.rules} />
         </section>
       )}
       {finalMatches.length > 0 && (
         <section className="panel">
+          <h2>Fase finale</h2>
           <RandomizeFinalResultsEasterEgg tournamentId={data.id} count={finalMatches.length} />
-          <MatchList matches={finalMatches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable tournamentId={data.id} rules={data.rules} />
+          {finalGroups.map(({ bracket, matches }) => (
+            <div key={bracket ?? 'single'}>
+              <h3 style={{ marginTop: 14 }}>{bracket ? `Tabellone ${bracketLabel(bracket)}` : 'Tabellone'}</h3>
+              <MatchList matches={matches} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable tournamentId={data.id} rules={data.rules} showTime={false} />
+            </div>
+          ))}
         </section>
       )}
       {otherMatches.length > 0 && (
