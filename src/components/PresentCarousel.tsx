@@ -235,7 +235,7 @@ function ChampionSlide({ slide }: { slide: PresentSlide & { kind: 'champion' } }
           {slide.title}
         </div>
         <div style={{ display: 'flex', gap: 'clamp(16px, 4vw, 56px)', flexWrap: 'wrap', justifyContent: 'center', marginTop: 'clamp(16px, 3vh, 34px)' }}>
-          {slide.winners.map((w) => <MedalBox key={w.rank} winner={w} />)}
+          {slide.winners.map((w) => <MedalBox key={w.label} winner={w} />)}
         </div>
       </div>
     </div>
@@ -244,7 +244,7 @@ function ChampionSlide({ slide }: { slide: PresentSlide & { kind: 'champion' } }
 
 function MedalBox({ winner }: { winner: ChampionWinner }) {
   const gold = winner.tone === 'gold';
-  const medal = winner.rank === 1 ? '🥇' : winner.rank === 2 ? '🥈' : '🥉';
+  const medal = gold ? '🥇' : '🥈';
   const accent = gold ? '#fcd34d' : '#cbd5e1';
   return (
     <div

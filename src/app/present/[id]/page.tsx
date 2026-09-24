@@ -98,7 +98,7 @@ export default async function PresentTournamentPage({ params }: { params: Promis
   const winners: ChampionWinner[] = [];
   if (singleWinner) winners.push({ rank: 1, label: 'Campione', team: singleWinner, tone: 'gold' });
   if (goldWinner) winners.push({ rank: 1, label: 'Gold', team: goldWinner, tone: 'gold' });
-  if (silverWinner) winners.push({ rank: 2, label: 'Silver', team: silverWinner, tone: 'silver' });
+  if (silverWinner) winners.push({ rank: 1, label: 'Silver', team: silverWinner, tone: 'silver' });
   if (winners.length > 0) {
     const title = winners.length > 1 ? 'Campioni' : 'Campione';
     screens.push({ id: 'champion', label: `🏆 ${title}`, slides: [{ kind: 'champion', id: 'champion', title, winners }] });
