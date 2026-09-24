@@ -16,19 +16,40 @@ describe('export csv', () => {
     expect(row).toContain('Finale'); // fase in italiano, non 'final'
   });
 
-  it('mostra Girone e Campo per nome e Orario leggibile', () => {
+  it('mostra Girone e Campo per nome e spezza Orario in Giorno + Ora', () => {
     const match: Match = { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'SCHEDULED', phase: 'group', groupId: 'gr1', courtId: 'co1', scheduledAt: '2026-09-21T07:30:00.000Z', sets: [] };
     const csv = matchesToCsv([match], {
       participantNames: new Map([['a', 'Alfa'], ['b', 'Bravo']]),
       groupNames: new Map([['gr1', 'Girone A']]),
       courtNames: new Map([['co1', 'Campo Centrale']])
     });
+    const header = csv.split('\n')[0];
+    expect(header).toContain('Giorno');
+    expect(header).toContain('Ora');
+    expect(header).not.toContain('Orario');
     const row = csv.split('\n')[1];
     expect(row).toContain('Girone A');
     expect(row).toContain('Campo Centrale');
     expect(row).not.toContain('gr1');
     expect(row).not.toContain('co1');
     expect(row).not.toContain('2026-09-21T07:30'); // niente ISO grezzo
+    expect(row).toMatch(/\d{2}\/\d{2}\/\d{4}/); // Giorno dd/mm/yyyy
+    expect(row).toMatch(/\d{2}:\d{2}/); // Ora HH:MM
+  });
+
+  it('ordina le righe: girone A, girone B, poi GOLD, poi SILVER', () => {
+    const groupNames = new Map([['grA', 'Girone A'], ['grB', 'Girone B']]);
+    const names = new Map([['a1', 'A1'], ['a2', 'A2'], ['b1', 'B1'], ['g1', 'G1'], ['s1', 'S1']]);
+    const matches: Match[] = [
+      { id: 'f-gold', participantAId: 'g1', participantBId: null, status: 'SCHEDULED', sets: [], phase: 'final', bracket: 'GOLD', roundIndex: 1 },
+      { id: 'f-silv', participantAId: 's1', participantBId: null, status: 'SCHEDULED', sets: [], phase: 'final', bracket: 'SILVER', roundIndex: 1 },
+      { id: 'b1', participantAId: 'b1', participantBId: null, status: 'SCHEDULED', sets: [], phase: 'group', groupId: 'grB', scheduledAt: '2026-09-21T12:00:00Z' },
+      { id: 'a2', participantAId: 'a2', participantBId: null, status: 'SCHEDULED', sets: [], phase: 'group', groupId: 'grA', scheduledAt: '2026-09-21T16:00:00Z' },
+      { id: 'a1', participantAId: 'a1', participantBId: null, status: 'SCHEDULED', sets: [], phase: 'group', groupId: 'grA', scheduledAt: '2026-09-21T09:00:00Z' }
+    ];
+    const lines = matchesToCsv(matches, { participantNames: names, groupNames }).split('\n').slice(1);
+    const firstTeam = lines.map((l) => l.split(',')[4]); // colonna 'Partecipante A'
+    expect(firstTeam).toEqual(['A1', 'A2', 'B1', 'G1', 'S1']);
   });
 
   it('produce intestazione e riga per la classifica', () => {

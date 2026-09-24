@@ -1,5 +1,6 @@
 import type { Match, MVPStandingRow, RankingRow } from './types';
 import { phaseLabel } from './labels';
+import { calendarGroups, matchDay, matchTime } from './calendar';
 
 function cell(value: unknown): string {
   const s = String(value ?? '');
@@ -56,9 +57,9 @@ export function matchesToCsv(
   const pname = (id: string | null | undefined) => (id ? participantNames?.get(id) ?? id : '');
   const gname = (id: string | null | undefined) => (id ? groupNames?.get(id) ?? '' : '');
   const cname = (id: string | null | undefined) => (id ? courtNames?.get(id) ?? '' : '');
-  const when = (iso?: string) => (iso ? new Date(iso).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
-  const header = ['Fase', 'Tabellone', 'Turno', 'Girone', 'Partecipante A', 'Partecipante B', 'Campo', 'Orario', 'Stato', 'Risultato', 'Vincitore'];
-  const lines = matches.map((match) => [
+  const header = ['Fase', 'Tabellone', 'Turno', 'Girone', 'Partecipante A', 'Partecipante B', 'Campo', 'Giorno', 'Ora', 'Stato', 'Risultato', 'Vincitore'];
+  const ordered = calendarGroups(matches, { groupNames }).flatMap((g) => g.matches);
+  const lines = ordered.map((match) => [
     phaseLabel(match.phase),
     match.bracket ?? '',
     match.roundIndex ?? '',
@@ -66,7 +67,8 @@ export function matchesToCsv(
     pname(match.participantAId),
     pname(match.participantBId),
     cname(match.courtId),
-    when(match.scheduledAt),
+    matchDay(match),
+    matchTime(match),
     match.status,
     match.sets.map((set) => `${set.gamesA}-${set.gamesB}`).join(' '),
     pname(match.winnerId ?? null)

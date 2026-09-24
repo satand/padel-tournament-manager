@@ -133,6 +133,9 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
             <div className="actions" style={{ marginTop: 6 }}>
               <span style={{ color: 'var(--muted)', fontSize: 13, alignSelf: 'center' }}>Esporta CSV:</span>
               <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=calendar`} download>Calendario</a>
+              {data.matches.length > 0 && (
+                <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export/calendar-pdf`} download>Calendario PDF</a>
+              )}
               <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=ranking`} download>Classifica Generale</a>
               <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=mvp`} download>MVP</a>
             </div>
