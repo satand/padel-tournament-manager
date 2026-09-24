@@ -90,15 +90,15 @@ export function buildCalendarPdfModel(opts: {
 }
 
 // Elenco partecipanti per la sezione "Partecipanti": blocchi per girone (A,B,…) e, dentro,
-// squadre ordinate per livello decrescente (poi nome). Il livello serve solo per ordinare
-// e non viene mai esposto (output = solo id + nome squadra).
-export type ParticipantBlock = { name: string; teams: { id: string; name: string }[] };
+// squadre ordinate per livello decrescente (poi nome). Il livello e' incluso nel dato ma
+// mostrato solo dove il componente lo rende (in admin); nella vista pubblica non viene esposto.
+export type ParticipantBlock = { name: string; teams: { id: string; name: string; level?: number }[] };
 
 const levelDesc = (a: Participant, b: Participant) =>
   ((b.level ?? Number.NEGATIVE_INFINITY) - (a.level ?? Number.NEGATIVE_INFINITY)) || a.displayName.localeCompare(b.displayName);
 
 export function participantsByGroupOrder(participants: Participant[], groups: { id: string; name: string }[]): ParticipantBlock[] {
-  const teams = (list: Participant[]) => [...list].sort(levelDesc).map((p) => ({ id: p.id, name: p.displayName }));
+  const teams = (list: Participant[]) => [...list].sort(levelDesc).map((p) => ({ id: p.id, name: p.displayName, level: p.level ?? undefined }));
   if (groups.length === 0) return [{ name: '', teams: teams(participants) }];
   const blocks: ParticipantBlock[] = [...groups]
     .sort((a, b) => a.name.localeCompare(b.name, 'it', { numeric: true }))

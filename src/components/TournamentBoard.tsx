@@ -176,7 +176,12 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
               <div key={block.name || 'all'}>
                 {block.name && <h3 style={{ margin: '4px 0 6px' }}>{block.name}</h3>}
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {block.teams.map((t) => <li key={t.id} style={{ padding: '2px 0', fontSize: 14 }}>{t.name}</li>)}
+                  {block.teams.map((t) => (
+                    <li key={t.id} style={{ padding: '2px 0', fontSize: 14 }}>
+                      <strong>{t.name}</strong>
+                      {isAdmin && t.level != null && <span style={{ color: 'var(--muted)' }}> · liv. {t.level}</span>}
+                    </li>
+                  ))}
                 </ul>
               </div>
             ))}

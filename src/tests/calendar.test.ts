@@ -91,8 +91,8 @@ describe('calendar — Partecipanti ordinati per girone poi livello', () => {
     expect(blocks.map((b) => b.name)).toEqual(['Girone A', 'Girone B']);
     expect(blocks[0].teams.map((t) => t.name)).toEqual(['A2', 'A1']);
     expect(blocks[1].teams.map((t) => t.name)).toEqual(['B2', 'B1']);
-    // nessun livello nell'output
-    expect(JSON.stringify(blocks)).not.toContain('8.55');
+    // il livello viene trasportato nel dato (l'admin lo mostra, la pubblica no)
+    expect(blocks[0].teams[0].level).toBe(8.55);
   });
 
   it('senza gironi: unico blocco con tutte le squadre per livello', () => {
