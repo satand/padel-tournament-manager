@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCalendarPdfModel, calendarGroups, matchResult, participantsByGroupOrder } from '@/lib/domain/calendar';
+import { buildCalendarPdfModel, calendarGroups, isByeSide, matchResult, participantsByGroupOrder } from '@/lib/domain/calendar';
 import type { Match, Participant } from '@/lib/domain/types';
 
 const mt = (m: Partial<Match> & { id: string }): Match =>
@@ -105,5 +105,32 @@ describe('calendar — Partecipanti ordinati per girone poi livello', () => {
   it('partecipanti senza girone finiscono in coda "Senza girone"', () => {
     const blocks = participantsByGroupOrder([pt('A1', 5, 'grA'), pt('Orfano', 9, undefined)], groups);
     expect(blocks.map((b) => b.name)).toEqual(['Girone A', 'Girone B', 'Senza girone']);
+  });
+});
+
+describe('calendar — BYE', () => {
+  it('isByeSide: vero solo per slot vuoto su WALKOVER/CANCELLED', () => {
+    expect(isByeSide(mt({ id: 'x', participantAId: 'a', status: 'WALKOVER' }), 'B')).toBe(true); // A presente, B vuoto + WALKOVER -> bye
+    expect(isByeSide(mt({ id: 'x', participantBId: null, participantAId: 'a', status: 'WALKOVER', winnerId: 'a' }), 'B')).toBe(true);
+    expect(isByeSide(mt({ id: 'x', participantBId: null, status: 'SCHEDULED' }), 'B')).toBe(false); // TBD
+    expect(isByeSide(mt({ id: 'x', participantAId: 'a', participantBId: 'b', status: 'WALKOVER' }), 'B')).toBe(false); // forfeit con entrambi
+    expect(isByeSide(mt({ id: 'x', participantBId: null, status: 'CANCELLED' }), 'B')).toBe(true); // doppio bye
+  });
+
+  it('modello PDF: "BYE" per il bye, trattino per la casella TBD', () => {
+    const model = buildCalendarPdfModel({
+      title: 'T',
+      groupNames: new Map(),
+      participantNames: new Map([['p1', 'Alpha']]),
+      matches: [
+        mt({ id: 'b', phase: 'quarterfinal', bracket: null, roundIndex: 1, participantAId: 'p1', participantBId: null, status: 'WALKOVER', winnerId: 'p1' }),
+        mt({ id: 't', phase: 'final', bracket: null, roundIndex: 2, participantAId: null, participantBId: null, status: 'SCHEDULED' })
+      ]
+    });
+    const rows = model.sections[0].rows;
+    const bye = rows.find((r) => r.teamA === 'Alpha');
+    expect(bye?.teamB).toBe('BYE');
+    const tbd = rows.find((r) => r.teamA === '-');
+    expect(tbd?.teamB).toBe('-');
   });
 });

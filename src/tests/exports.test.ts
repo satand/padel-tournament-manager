@@ -52,6 +52,14 @@ describe('export csv', () => {
     expect(firstTeam).toEqual(['A1', 'A2', 'B1', 'G1', 'S1']);
   });
 
+  it('etichetta BYE lo slot mancante di una partita WALKOVER (bye), non una casella TBD', () => {
+    const bye: Match = { id: 'b', participantAId: 'a', participantBId: null, status: 'WALKOVER', sets: [], phase: 'quarterfinal', bracket: null, roundIndex: 1, winnerId: 'a' };
+    const tbd: Match = { id: 't', participantAId: 'a', participantBId: null, status: 'SCHEDULED', sets: [], phase: 'final', bracket: null, roundIndex: 2 };
+    const [byeRow, tbdRow] = matchesToCsv([bye, tbd], { participantNames: new Map([['a', 'Alpha']]) }).split('\n').slice(1);
+    expect(byeRow.split(',')[5]).toBe('BYE'); // 'Partecipante B' = bye
+    expect(tbdRow.split(',')[5]).toBe('');    // casella TBD non marcata BYE
+  });
+
   it('produce intestazione e riga per la classifica', () => {
     const row = {
       participantId: 'a', displayName: 'Alpha', position: 1, played: 2, won: 2, lost: 0, drawn: 0,

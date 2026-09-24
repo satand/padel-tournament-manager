@@ -4,6 +4,7 @@ import { tournamentInclude, toDomainContext, computeMvp, type TournamentContext 
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
 import { generalPhaseReached } from '@/lib/domain/finals';
+import { isByeSide } from '@/lib/domain/calendar';
 import { phaseLabel, bracketLabel } from '@/lib/domain/labels';
 import type { Match } from '@/lib/domain/types';
 import { PresentCarousel, type ChampionWinner, type PresentScreen, type PresentSlide } from '@/components/PresentCarousel';
@@ -32,7 +33,7 @@ function bracketSlide(key: string, ms: Match[], names: Map<string, string>): Pre
       const winner: 'A' | 'B' | null =
         done && m.winnerId ? (m.winnerId === m.participantAId ? 'A' : m.winnerId === m.participantBId ? 'B' : null) : null;
       const sets = m.sets.map((s) => `${s.gamesA}-${s.gamesB}`);
-      return { id: m.id, teamA, teamB, sets, winner, done };
+      return { id: m.id, teamA, teamB, sets, winner, done, byeA: isByeSide(m, 'A'), byeB: isByeSide(m, 'B') };
     });
     return { roundLabel: phaseLabel(rm[0]?.phase), matches };
   });

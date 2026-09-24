@@ -6,6 +6,7 @@ import type { Match, Participant, TournamentRules } from '@/lib/domain/types';
 import { validateMatchResult } from '@/lib/domain/validators';
 import { rulesForPhase } from '@/lib/domain/scoring';
 import { phaseLabel, bracketLabel } from '@/lib/domain/labels';
+import { isByeSide } from '@/lib/domain/calendar';
 import { matchPhaseRank, mvpScopeThreshold, type MvpThrough } from '@/lib/domain/mvp';
 
 type MvpInfo = { matchId: string; playerId: string; rating: number; penalty?: number };
@@ -36,8 +37,8 @@ export function MatchList({ matches, participants, players = [], courtNames = {}
           <MatchCard
             key={match.id}
             match={match}
-            nameA={name.get(match.participantAId ?? '') ?? match.participantAId ?? 'In attesa'}
-            nameB={name.get(match.participantBId ?? '') ?? match.participantBId ?? 'In attesa'}
+            nameA={match.participantAId ? (name.get(match.participantAId) ?? match.participantAId) : (isByeSide(match, 'A') ? 'BYE' : 'In attesa')}
+            nameB={match.participantBId ? (name.get(match.participantBId) ?? match.participantBId) : (isByeSide(match, 'B') ? 'BYE' : 'In attesa')}
             courtName={match.courtId ? (courtNames[match.courtId] ?? match.courtId) : undefined}
             groupNames={groupNames}
             editable={editable && ['SCHEDULED', 'IN_PROGRESS'].includes(match.status)}

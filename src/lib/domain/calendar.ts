@@ -56,6 +56,14 @@ export function matchResult(m: Match): string {
   return m.sets.map((s) => `${s.gamesA}-${s.gamesB}`).join(' ') || '-';
 }
 
+// true se lo slot vuoto di una partita e' un BYE (avversario assente, passaggio a vuoto),
+// non una casella "da definire" figlia di un altro match (che resta SCHEDULED/IN_PROGRESS).
+export function isByeSide(m: Match, side: 'A' | 'B'): boolean {
+  const id = side === 'A' ? m.participantAId : m.participantBId;
+  if (id) return false;
+  return m.status === 'WALKOVER' || m.status === 'CANCELLED';
+}
+
 export type CalendarPdfRow = { teamA: string; teamB: string; court: string; day: string; time: string; result: string };
 export type CalendarPdfSection = { key: string; label: string; rows: CalendarPdfRow[] };
 export type CalendarPdfModel = { title: string; dateLabel: string | null; showDay: boolean; sections: CalendarPdfSection[] };
@@ -71,6 +79,10 @@ export function buildCalendarPdfModel(opts: {
   const { title, startsAt, matches } = opts;
   const name = (id: string | null) => (id ? opts.participantNames?.get(id) ?? id : '-');
   const court = (id: string | undefined) => (id ? opts.courtNames?.get(id) ?? id : '-');
+  const sideName = (m: Match, side: 'A' | 'B') => {
+    const id = side === 'A' ? m.participantAId : m.participantBId;
+    return id ? name(id) : isByeSide(m, side) ? 'BYE' : '-';
+  };
 
   const days = matches.filter((m) => m.scheduledAt).map(matchDay).filter(Boolean);
   const distinct = new Set(days);
@@ -83,7 +95,7 @@ export function buildCalendarPdfModel(opts: {
   const sections: CalendarPdfSection[] = calendarGroups(matches, { groupNames: opts.groupNames }).map((g) => ({
     key: g.key,
     label: g.label,
-    rows: g.matches.map((m) => ({ teamA: name(m.participantAId), teamB: name(m.participantBId), court: court(m.courtId), day: matchDay(m), time: matchTime(m), result: matchResult(m) }))
+    rows: g.matches.map((m) => ({ teamA: sideName(m, 'A'), teamB: sideName(m, 'B'), court: court(m.courtId), day: matchDay(m), time: matchTime(m), result: matchResult(m) }))
   }));
 
   return { title, dateLabel, showDay, sections };

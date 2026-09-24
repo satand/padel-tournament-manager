@@ -13,6 +13,8 @@ export type BracketMatch = {
   sets: string[];
   winner: 'A' | 'B' | null;
   done: boolean;
+  byeA: boolean;
+  byeB: boolean;
 };
 export type BracketColumn = { roundLabel: string; matches: BracketMatch[] };
 export type ChampionWinner = { rank: number; label: string; team: string; tone: 'gold' | 'silver' };
@@ -379,8 +381,8 @@ function MatchCard({ m }: { m: BracketMatch }) {
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', gap: 6, background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: '5px 8px', boxSizing: 'border-box' }}>
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <BracketTeam name={m.teamA} win={m.winner === 'A'} />
-        <BracketTeam name={m.teamB} win={m.winner === 'B'} />
+        <BracketTeam name={m.teamA} win={m.winner === 'A'} bye={m.byeA} />
+        <BracketTeam name={m.teamB} win={m.winner === 'B'} bye={m.byeB} />
       </div>
       {m.sets.length ? (
         <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, textAlign: 'right', fontWeight: 800, color: '#fbbf24', fontSize: 'clamp(12px, 1.5vw, 17px)', letterSpacing: '.02em' }}>
@@ -391,10 +393,11 @@ function MatchCard({ m }: { m: BracketMatch }) {
   );
 }
 
-function BracketTeam({ name, win }: { name: string | null; win: boolean }) {
-  const label = name ?? 'in attesa';
+function BracketTeam({ name, win, bye }: { name: string | null; win: boolean; bye?: boolean }) {
+  const label = name ?? (bye ? 'BYE' : 'in attesa');
+  const color = win ? '#4ade80' : name ? '#f8fafc' : bye ? '#94a3b8' : '#64748b';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: win ? 900 : 600, fontSize: 'clamp(12px, 1.4vw, 17px)', color: win ? '#4ade80' : name ? '#f8fafc' : '#64748b', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: win ? 900 : 600, fontSize: 'clamp(12px, 1.4vw, 17px)', color, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontStyle: bye && !name ? 'italic' : 'normal' }}>
       <span style={{ width: 14, flexShrink: 0 }}>{win ? '🏅' : ''}</span>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
     </div>
