@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildCalendarPdfModel, calendarGroups, matchResult } from '@/lib/domain/calendar';
-import type { Match } from '@/lib/domain/types';
+import { buildCalendarPdfModel, calendarGroups, matchResult, participantsByGroupOrder } from '@/lib/domain/calendar';
+import type { Match, Participant } from '@/lib/domain/types';
 
 const mt = (m: Partial<Match> & { id: string }): Match =>
   ({ participantAId: null, participantBId: null, status: 'SCHEDULED', sets: [], ...m });
@@ -75,5 +75,35 @@ describe('calendar — modello PDF', () => {
   it('matchResult produce il punteggio o un trattino', () => {
     expect(matchResult(mt({ id: 'x', sets: [{ setNumber: 1, gamesA: 7, gamesB: 5 }] }))).toBe('7-5');
     expect(matchResult(mt({ id: 'x' }))).toBe('-');
+  });
+});
+
+describe('calendar — Partecipanti ordinati per girone poi livello', () => {
+  const pt = (id: string, level: number | undefined, groupId?: string): Participant =>
+    ({ id, displayName: id, type: 'TEAM', playerIds: [], level, groupId });
+  const groups = [{ id: 'grA', name: 'Girone A' }, { id: 'grB', name: 'Girone B' }];
+
+  it('blocchi per girone (A,B,…) e squadre per livello decrescente, senza esporre il livello', () => {
+    const blocks = participantsByGroupOrder(
+      [pt('B1', 5, 'grB'), pt('A1', 3, 'grA'), pt('A2', 8.55, 'grA'), pt('B2', 7, 'grB')],
+      groups
+    );
+    expect(blocks.map((b) => b.name)).toEqual(['Girone A', 'Girone B']);
+    expect(blocks[0].teams.map((t) => t.name)).toEqual(['A2', 'A1']);
+    expect(blocks[1].teams.map((t) => t.name)).toEqual(['B2', 'B1']);
+    // nessun livello nell'output
+    expect(JSON.stringify(blocks)).not.toContain('8.55');
+  });
+
+  it('senza gironi: unico blocco con tutte le squadre per livello', () => {
+    const blocks = participantsByGroupOrder([pt('X', 2), pt('Y', 9)], []);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0].name).toBe('');
+    expect(blocks[0].teams.map((t) => t.name)).toEqual(['Y', 'X']);
+  });
+
+  it('partecipanti senza girone finiscono in coda "Senza girone"', () => {
+    const blocks = participantsByGroupOrder([pt('A1', 5, 'grA'), pt('Orfano', 9, undefined)], groups);
+    expect(blocks.map((b) => b.name)).toEqual(['Girone A', 'Girone B', 'Senza girone']);
   });
 });

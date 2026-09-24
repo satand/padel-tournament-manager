@@ -405,8 +405,8 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
                   <input placeholder="Nome e cognome" value={couple.player2} onChange={(e) => setCouple({ ...couple, player2: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Livello (obbligatorio, 0–10, 1 decimale)</label>
-                  <input type="number" min={0} max={10} step={0.1} required value={couple.level} onChange={(e) => setCouple({ ...couple, level: e.target.value })} />
+                  <label>Livello (obbligatorio, 0–10, 2 decimali)</label>
+                  <input type="number" min={0} max={10} step={0.01} required value={couple.level} onChange={(e) => setCouple({ ...couple, level: e.target.value })} />
                 </div>
               </div>
               <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>Il nome della squadra è generato automaticamente dai cognomi (es. "Rossi / Bianchi").</p>
@@ -419,32 +419,51 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
         </div>
 
         <div>
-          <h3>Coppie iscritte ({participants.length})</h3>
-          <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {participants.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 14, margin: '4px 0' }}>Nessuna coppia inserita.</p>}
-            {participants.map((p) => (
-              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#f8fafc', border: '1px solid var(--border)', fontSize: 14 }}>
-                <span style={{ minWidth: 0 }}>
-                  <strong>{p.displayName}</strong>
-                  {p.level != null && <span style={{ color: 'var(--muted)' }}> · liv. {p.level}</span>}
-                </span>
-                {!rosterLocked && (
-                  <span style={{ display: 'inline-flex', gap: 4, flexShrink: 0 }}>
-                    <button onClick={() => startEdit(p)} style={{ border: '1px solid var(--border)', background: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Modifica</button>
-                    {confirmDeleteId === p.id ? (
-                      <>
-                        <button onClick={() => deleteCouple(p.id)} disabled={busy} style={{ border: 'none', background: 'var(--danger)', color: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Conferma</button>
-                        <button onClick={() => setConfirmDeleteId(null)} style={{ border: '1px solid var(--border)', background: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer' }}>No</button>
-                      </>
-                    ) : (
-                      <button onClick={() => setConfirmDeleteId(p.id)} style={{ border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '3px 8px' }}>Elimina</button>
-                    )}
-                  </span>
-                )}
+          {rosterLocked ? (
+            <details style={{ border: '1px solid var(--border)', borderRadius: 12, background: '#fff', padding: '10px 12px' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 700, fontSize: 15 }}>Coppie iscritte ({participants.length})</summary>
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {participants.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 14, margin: '4px 0' }}>Nessuna coppia inserita.</p>}
+                {participants.map((p) => (
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#f8fafc', border: '1px solid var(--border)', fontSize: 14 }}>
+                    <span style={{ minWidth: 0 }}>
+                      <strong>{p.displayName}</strong>
+                      {p.level != null && <span style={{ color: 'var(--muted)' }}> · liv. {p.level}</span>}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {rosterLocked && <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 6 }}>Sola lettura: le squadre sono già assegnate al calendario.</p>}
+              <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 8 }}>Anagrafica bloccata: squadre non modificabili, in ordine di iscrizione.</p>
+            </details>
+          ) : (
+            <>
+              <h3>Coppie iscritte ({participants.length})</h3>
+              <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 12, padding: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {participants.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 14, margin: '4px 0' }}>Nessuna coppia inserita.</p>}
+                {participants.map((p) => (
+                  <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 8, background: '#f8fafc', border: '1px solid var(--border)', fontSize: 14 }}>
+                    <span style={{ minWidth: 0 }}>
+                      <strong>{p.displayName}</strong>
+                      {p.level != null && <span style={{ color: 'var(--muted)' }}> · liv. {p.level}</span>}
+                    </span>
+                    {!rosterLocked && (
+                      <span style={{ display: 'inline-flex', gap: 4, flexShrink: 0 }}>
+                        <button onClick={() => startEdit(p)} style={{ border: '1px solid var(--border)', background: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Modifica</button>
+                        {confirmDeleteId === p.id ? (
+                          <>
+                            <button onClick={() => deleteCouple(p.id)} disabled={busy} style={{ border: 'none', background: 'var(--danger)', color: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Conferma</button>
+                            <button onClick={() => setConfirmDeleteId(null)} style={{ border: '1px solid var(--border)', background: 'white', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer' }}>No</button>
+                          </>
+                        ) : (
+                          <button onClick={() => setConfirmDeleteId(p.id)} style={{ border: 'none', background: 'transparent', color: 'var(--danger)', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '3px 8px' }}>Elimina</button>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

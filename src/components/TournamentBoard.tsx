@@ -3,6 +3,7 @@ import { computeMvp, type TournamentContext } from '@/lib/server/serialize';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
 import { bracketPhaseReached, bracketPlacements, generalPhaseReached } from '@/lib/domain/finals';
+import { participantsByGroupOrder } from '@/lib/domain/calendar';
 import { bracketLabel } from '@/lib/domain/labels';
 import { RankingTable } from '@/components/RankingTable';
 import { MVPTable } from '@/components/MVPTable';
@@ -165,6 +166,22 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
           qualifiedCount={qualifiedCount}
           finalsCompleted={finalsCompleted}
         />
+      )}
+
+      {data.participants.length > 0 && (
+        <section className="panel">
+          <h2>Partecipanti</h2>
+          <div className="grid grid-2">
+            {participantsByGroupOrder(data.participants, data.groups).map((block) => (
+              <div key={block.name || 'all'}>
+                {block.name && <h3 style={{ margin: '4px 0 6px' }}>{block.name}</h3>}
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  {block.teams.map((t) => <li key={t.id} style={{ padding: '2px 0', fontSize: 14 }}>{t.name}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {overallRanking.length > 0 && (

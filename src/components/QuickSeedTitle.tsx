@@ -20,7 +20,7 @@ function makeCouples(count: number): { player1: string; player2: string; level: 
     let p1 = makeName();
     let p2 = makeName();
     while (p2 === p1) p2 = makeName();
-    const level = Math.round((2 + Math.random() * 6.5) * 10) / 10;
+    const level = Math.round((2 + Math.random() * 6.5) * 100) / 100;
     return { player1: p1, player2: p2, level };
   });
 }

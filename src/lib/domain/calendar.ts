@@ -1,7 +1,7 @@
 // Logica pura per il "Calendario": raggruppamento/ordinamento partite e modello PDF.
 // Nessuna dipendenza da Prisma/Next; formatdata con Intl (it-IT).
 
-import type { Match } from './types';
+import type { Match, Participant } from './types';
 import { bracketLabel } from './labels';
 
 const isFinal = (m: Match) => !!m.phase && m.phase !== 'group' && m.phase !== 'round-robin';
@@ -87,4 +87,23 @@ export function buildCalendarPdfModel(opts: {
   }));
 
   return { title, dateLabel, showDay, sections };
+}
+
+// Elenco partecipanti per la sezione "Partecipanti": blocchi per girone (A,B,…) e, dentro,
+// squadre ordinate per livello decrescente (poi nome). Il livello serve solo per ordinare
+// e non viene mai esposto (output = solo id + nome squadra).
+export type ParticipantBlock = { name: string; teams: { id: string; name: string }[] };
+
+const levelDesc = (a: Participant, b: Participant) =>
+  ((b.level ?? Number.NEGATIVE_INFINITY) - (a.level ?? Number.NEGATIVE_INFINITY)) || a.displayName.localeCompare(b.displayName);
+
+export function participantsByGroupOrder(participants: Participant[], groups: { id: string; name: string }[]): ParticipantBlock[] {
+  const teams = (list: Participant[]) => [...list].sort(levelDesc).map((p) => ({ id: p.id, name: p.displayName }));
+  if (groups.length === 0) return [{ name: '', teams: teams(participants) }];
+  const blocks: ParticipantBlock[] = [...groups]
+    .sort((a, b) => a.name.localeCompare(b.name, 'it', { numeric: true }))
+    .map((g) => ({ name: g.name, teams: teams(participants.filter((p) => p.groupId === g.id)) }));
+  const unassigned = participants.filter((p) => !p.groupId || !groups.some((g) => g.id === p.groupId));
+  if (unassigned.length > 0) blocks.push({ name: 'Senza girone', teams: teams(unassigned) });
+  return blocks;
 }

@@ -6,7 +6,7 @@ import { composeTeamDisplayName, parsePlayerName, playerSurname } from '@/lib/do
 
 function roundLevel(level: number | undefined): number | null {
   if (level == null || Number.isNaN(level)) return null;
-  return Math.round(level * 10) / 10;
+  return Math.round(level * 100) / 100;
 }
 
 async function matchCount(tournamentId: string): Promise<number> {
