@@ -225,12 +225,11 @@ function LightPanel({ children }: { children: React.ReactNode }) {
 }
 
 function ChampionSlide({ slide }: { slide: PresentSlide & { kind: 'champion' } }) {
-  const multi = slide.winners.length > 1;
   return (
     <div style={{ position: 'relative', textAlign: 'center', minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
       <Fireworks />
       <div style={{ position: 'relative' }}>
-        <div style={{ fontSize: 'clamp(40px, 8vw, 110px)', lineHeight: 1 }}>{multi ? '🏆' : '🥇'}</div>
+        <div style={{ fontSize: 'clamp(40px, 8vw, 110px)', lineHeight: 1 }}>🏆</div>
         <div style={{ fontSize: 'clamp(16px, 2vw, 26px)', color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '.12em' }}>
           {slide.title}
         </div>
@@ -244,7 +243,6 @@ function ChampionSlide({ slide }: { slide: PresentSlide & { kind: 'champion' } }
 
 function MedalBox({ winner }: { winner: ChampionWinner }) {
   const gold = winner.tone === 'gold';
-  const medal = gold ? '🥇' : '🥈';
   const accent = gold ? '#fcd34d' : '#cbd5e1';
   return (
     <div
@@ -258,10 +256,61 @@ function MedalBox({ winner }: { winner: ChampionWinner }) {
         boxShadow: `0 0 40px ${gold ? 'rgba(252,211,77,.35)' : 'rgba(203,213,225,.25)'}`
       }}
     >
-      <div style={{ fontSize: 'clamp(40px, 6vw, 78px)', lineHeight: 1 }}>{medal}</div>
-      <div style={{ position: 'absolute', top: 10, left: 14, fontSize: 'clamp(20px, 2.4vw, 34px)', fontWeight: 900, color: accent }}>{winner.rank}°</div>
-      <div style={{ fontSize: 'clamp(13px, 1.6vw, 18px)', color: accent, textTransform: 'uppercase', letterSpacing: '.1em', marginTop: 6 }}>{winner.label}</div>
+      <MedalDisc tone={winner.tone} number={winner.rank} />
+      <div style={{ fontSize: 'clamp(13px, 1.6vw, 18px)', color: accent, textTransform: 'uppercase', letterSpacing: '.1em', marginTop: 10 }}>{winner.label}</div>
       <div style={{ fontSize: 'clamp(24px, 4vw, 48px)', fontWeight: 900, marginTop: 4, color: '#f8fafc', wordBreak: 'break-word' }}>{winner.team}</div>
+    </div>
+  );
+}
+
+function MedalDisc({ tone, number }: { tone: 'gold' | 'silver'; number: number }) {
+  const gold = tone === 'gold';
+  const size = 'clamp(80px, 10vw, 128px)';
+  const discBg = gold
+    ? 'radial-gradient(circle at 35% 28%, #fff6bf 0%, #fcd34d 34%, #d97706 70%, #92400e 100%)'
+    : 'radial-gradient(circle at 35% 28%, #ffffff 0%, #e2e8f0 34%, #94a3b8 70%, #475569 100%)';
+  const ring = gold ? '#b45309' : '#64748b';
+  const numColor = gold ? '#7c2d12' : '#1e293b';
+  const glow = gold ? 'rgba(252,211,77,.5)' : 'rgba(203,213,225,.4)';
+  const ribbonA = gold ? '#ef4444' : '#3b82f6';
+  const ribbonB = gold ? '#991b1b' : '#1e3a8a';
+  const ribbon = (deg: number): React.CSSProperties => ({
+    position: 'absolute',
+    top: 0,
+    left: '50%',
+    width: '30%',
+    height: '54%',
+    background: `linear-gradient(180deg, ${ribbonA}, ${ribbonB})`,
+    transform: `translateX(-50%) rotate(${deg}deg)`,
+    transformOrigin: 'top center',
+    clipPath: 'polygon(0 0, 100% 0, 100% 100%, 50% 76%, 0 100%)',
+    boxShadow: '0 2px 4px rgba(0,0,0,.3)',
+    zIndex: 1
+  });
+  return (
+    <div style={{ position: 'relative', width: size, height: `calc(${size} + 26px)`, margin: '0 auto' }}>
+      <span style={ribbon(-18)} />
+      <span style={ribbon(18)} />
+      <div
+        className={`medal medal--${tone}`}
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          background: discBg,
+          border: `4px solid ${ring}`,
+          boxShadow: `0 0 30px ${glow}, inset 0 2px 6px rgba(255,255,255,.55), inset 0 -6px 10px rgba(0,0,0,.28)`,
+          display: 'grid',
+          placeItems: 'center',
+          zIndex: 2
+        }}
+      >
+        <span style={{ fontSize: 'clamp(30px, 4.6vw, 58px)', fontWeight: 900, color: numColor, textShadow: '0 1px 0 rgba(255,255,255,.35)', lineHeight: 1 }}>{number}</span>
+      </div>
     </div>
   );
 }
