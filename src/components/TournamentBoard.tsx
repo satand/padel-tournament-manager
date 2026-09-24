@@ -134,9 +134,6 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
               <span style={{ color: 'var(--muted)', fontSize: 13, alignSelf: 'center' }}>Esporta CSV:</span>
               <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=calendar`} download>Calendario</a>
               <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=ranking`} download>Classifica Generale</a>
-              {finalMatches.length > 0 && (
-                <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=finals`} download>Classifica Finali</a>
-              )}
               <a className="button secondary" style={{ padding: '6px 12px', fontSize: 13 }} href={`/api/tournaments/${data.id}/export?type=mvp`} download>MVP</a>
             </div>
           </>
@@ -167,6 +164,13 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
         />
       )}
 
+      {overallRanking.length > 0 && (
+        <section className="panel">
+          <h2>Classifica generale</h2>
+          <RankingTable rows={overallRanking} phaseReached={generalPhase} />
+        </section>
+      )}
+
       {showGroups && data.groups.map((group) => {
         const groupParticipants = data.participants.filter((p) => p.groupId === group.id);
         const groupMatches = data.matches.filter((m) => m.groupId === group.id);
@@ -178,13 +182,6 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
           </section>
         );
       })}
-
-      {overallRanking.length > 0 && (
-        <section className="panel">
-          <h2>Classifica generale</h2>
-          <RankingTable rows={overallRanking} phaseReached={generalPhase} />
-        </section>
-      )}
 
       {placementTables.length > 0 && (
         <section className="panel">

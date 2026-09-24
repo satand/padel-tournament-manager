@@ -76,6 +76,11 @@ export default async function PresentTournamentPage({ params }: { params: Promis
 
   const screens: PresentScreen[] = [];
 
+  const overall = calculateRanking(data.participants, data.matches, data.rules, avgMvp);
+  if (overall.length > 0) {
+    screens.push({ id: 'standings', label: 'Classifica', slides: [{ kind: 'standings', id: 'standings', title: 'Classifica generale', rows: overall, phaseReached: generalPhaseReached(data.participants, data.matches, data.groups.length > 0 ? 'Gironi' : '—') }] });
+  }
+
   if (data.groups.length > 0) {
     const slides: PresentSlide[] = data.groups.map((group) => ({
       kind: 'group',
@@ -123,11 +128,6 @@ export default async function PresentTournamentPage({ params }: { params: Promis
       slides: ordered.map((m) => matchSlide(m, names, courtNames))
     });
     if (entry.hasPending && !defaultPhaseScreen) defaultPhaseScreen = `phase-${entry.phase}`;
-  }
-
-  const overall = calculateRanking(data.participants, data.matches, data.rules, avgMvp);
-  if (overall.length > 0) {
-    screens.push({ id: 'standings', label: 'Classifica', slides: [{ kind: 'standings', id: 'standings', title: 'Classifica generale', rows: overall, phaseReached: generalPhaseReached(data.participants, data.matches, data.groups.length > 0 ? 'Gironi' : '—') }] });
   }
 
   if (mvp.rows.length > 0) {
