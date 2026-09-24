@@ -31,8 +31,8 @@ function bracketSlide(key: string, ms: Match[], names: Map<string, string>): Pre
       const teamB = m.participantBId ? (names.get(m.participantBId) ?? null) : null;
       const winner: 'A' | 'B' | null =
         done && m.winnerId ? (m.winnerId === m.participantAId ? 'A' : m.winnerId === m.participantBId ? 'B' : null) : null;
-      const score = m.sets.length ? m.sets.map((s) => `${s.gamesA}-${s.gamesB}`).join('  ') : '';
-      return { id: m.id, teamA, teamB, score, winner, done };
+      const sets = m.sets.map((s) => `${s.gamesA}-${s.gamesB}`);
+      return { id: m.id, teamA, teamB, sets, winner, done };
     });
     return { roundLabel: phaseLabel(rm[0]?.phase), matches };
   });

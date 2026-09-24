@@ -10,7 +10,7 @@ export type BracketMatch = {
   id: string;
   teamA: string | null;
   teamB: string | null;
-  score: string;
+  sets: string[];
   winner: 'A' | 'B' | null;
   done: boolean;
 };
@@ -370,10 +370,16 @@ function BracketView({ columns, title }: { columns: BracketColumn[]; title: stri
 
 function MatchCard({ m }: { m: BracketMatch }) {
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: '5px 8px', boxSizing: 'border-box', gap: 3 }}>
-      <BracketTeam name={m.teamA} win={m.winner === 'A'} />
-      <BracketTeam name={m.teamB} win={m.winner === 'B'} />
-      {m.score ? <div style={{ textAlign: 'center', fontWeight: 800, color: '#fbbf24', fontSize: 'clamp(13px, 1.6vw, 18px)', letterSpacing: '.02em', marginTop: 2 }}>{m.score}</div> : null}
+    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', gap: 6, background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: '5px 8px', boxSizing: 'border-box' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <BracketTeam name={m.teamA} win={m.winner === 'A'} />
+        <BracketTeam name={m.teamB} win={m.winner === 'B'} />
+      </div>
+      {m.sets.length ? (
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1, textAlign: 'right', fontWeight: 800, color: '#fbbf24', fontSize: 'clamp(12px, 1.5vw, 17px)', letterSpacing: '.02em' }}>
+          {m.sets.map((s, i) => <span key={i}>{s}</span>)}
+        </div>
+      ) : null}
     </div>
   );
 }
