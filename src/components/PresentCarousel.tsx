@@ -18,8 +18,8 @@ export type BracketColumn = { roundLabel: string; matches: BracketMatch[] };
 export type ChampionWinner = { rank: number; label: string; team: string; tone: 'gold' | 'silver' };
 
 export type PresentSlide =
-  | { kind: 'group'; id: string; title: string; rows: RankingRow[]; phaseReached?: Map<string, string> }
   | { kind: 'standings'; id: string; title: string; rows: RankingRow[]; phaseReached?: Map<string, string> }
+  | { kind: 'groups'; id: string; title: string; groups: { name: string; rows: RankingRow[] }[] }
   | { kind: 'mvp'; id: string; title: string; subtitle?: string; rows: MVPStandingRow[] }
   | { kind: 'champion'; id: string; title: string; winners: ChampionWinner[] }
   | { kind: 'bracket'; id: string; title: string; columns: BracketColumn[] };
@@ -184,12 +184,24 @@ function renderSlide(slide?: PresentSlide) {
     return <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 22 }}>Nessun dato da proiettare.</p>;
   }
   switch (slide.kind) {
-    case 'group':
     case 'standings':
       return (
         <div>
           <SlideTitle>{slide.title}</SlideTitle>
           {slide.rows.length > 0 ? <LightPanel><RankingTable rows={slide.rows} phaseReached={slide.phaseReached} /></LightPanel> : <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 18 }}>Nessuna squadra.</p>}
+        </div>
+      );
+    case 'groups':
+      return (
+        <div>
+          <SlideTitle>{slide.title}</SlideTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 'clamp(12px, 1.5vw, 20px)' }}>
+            {slide.groups.map((g) => (
+              <LightPanel key={g.name}>
+                <RankingTable rows={g.rows} />
+              </LightPanel>
+            ))}
+          </div>
         </div>
       );
     case 'mvp':
@@ -282,20 +294,23 @@ function Fireworks() {
   );
 }
 
-const CARD_H = 76;
+const CARD_H = 86;
 const GAP_Y = 16;
+const PAD = 0.22;
 
 function BracketView({ columns, title }: { columns: BracketColumn[]; title: string }) {
   const nC = columns.length;
   const maxN = Math.max(1, ...columns.map((c) => c.matches.length));
   const height = maxN * (CARD_H + GAP_Y) - GAP_Y;
   const colPct = 100 / nC;
+  const gapPct = PAD * colPct;
 
   const connectors: React.ReactNode[] = [];
   for (let ci = 0; ci < nC - 1; ci++) {
     const nr = columns[ci].matches.length;
     const nr2 = columns[ci + 1].matches.length;
-    const xB = ((ci + 1) * colPct).toFixed(4);
+    const boundary = ((ci + 1) * colPct).toFixed(4);
+    const stubLeft = ((ci + 1 - PAD) * colPct).toFixed(4);
     for (let j = 0; j < nr2; j++) {
       const a = 2 * j;
       const b = 2 * j + 1;
@@ -304,10 +319,10 @@ function BracketView({ columns, title }: { columns: BracketColumn[]; title: stri
       const cB = b < nr ? ((b + 0.5) / nr) * height : cA;
       const cN = ((j + 0.5) / nr2) * height;
       connectors.push(
-        <span key={`va-${ci}-${j}`} className="fw-line" style={{ left: `calc(${xB}% - 1px)`, top: cA, height: Math.max(0, cB - cA) }} />,
-        <span key={`ha-${ci}-${j}`} className="fw-line-h" style={{ left: `calc(${xB}% - 14px)`, top: cA - 1, width: 14 }} />,
-        <span key={`hb-${ci}-${j}`} className="fw-line-h" style={{ left: `calc(${xB}% - 14px)`, top: cB - 1, width: 14 }} />,
-        <span key={`hn-${ci}-${j}`} className="fw-line-h" style={{ left: `${xB}%`, top: cN - 1, width: 14 }} />
+        <span key={`va-${ci}-${j}`} className="br-line" style={{ left: `calc(${boundary}% - 1.5px)`, top: cA, height: Math.max(0, cB - cA) }} />,
+        <span key={`ha-${ci}-${j}`} className="br-line-h" style={{ left: `${stubLeft}%`, top: cA - 1.5, width: `${gapPct.toFixed(4)}%` }} />,
+        <span key={`hb-${ci}-${j}`} className="br-line-h" style={{ left: `${stubLeft}%`, top: cB - 1.5, width: `${gapPct.toFixed(4)}%` }} />,
+        <span key={`hn-${ci}-${j}`} className="br-line-h" style={{ left: `${boundary}%`, top: cN - 1.5, width: `${gapPct.toFixed(4)}%` }} />
       );
     }
   }
@@ -316,7 +331,7 @@ function BracketView({ columns, title }: { columns: BracketColumn[]; title: stri
     <div>
       <SlideTitle>{title}</SlideTitle>
       <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
-        <div style={{ minWidth: nC * 190 }}>
+        <div style={{ minWidth: nC * 230 }}>
           <div style={{ display: 'flex' }}>
             {columns.map((c, ci) => (
               <div key={`h-${ci}`} style={{ flex: 1, textAlign: 'center', color: '#94a3b8', fontSize: 'clamp(11px, 1.2vw, 15px)', textTransform: 'uppercase', letterSpacing: '.06em', paddingBottom: 8 }}>
@@ -335,8 +350,8 @@ function BracketView({ columns, title }: { columns: BracketColumn[]; title: stri
                     key={m.id}
                     style={{
                       position: 'absolute',
-                      left: `calc(${(ci * colPct).toFixed(4)}% + 3px)`,
-                      width: `calc(${colPct.toFixed(4)}% - 6px)`,
+                      left: `${((ci + PAD) * colPct).toFixed(4)}%`,
+                      width: `${((1 - 2 * PAD) * colPct).toFixed(4)}%`,
                       top: center - CARD_H / 2,
                       height: CARD_H
                     }}
@@ -355,10 +370,10 @@ function BracketView({ columns, title }: { columns: BracketColumn[]; title: stri
 
 function MatchCard({ m }: { m: BracketMatch }) {
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: '4px 8px', boxSizing: 'border-box', gap: 2 }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: '5px 8px', boxSizing: 'border-box', gap: 3 }}>
       <BracketTeam name={m.teamA} win={m.winner === 'A'} />
       <BracketTeam name={m.teamB} win={m.winner === 'B'} />
-      {m.score ? <div style={{ position: 'absolute', bottom: 3, right: 8, fontSize: 11, color: '#64748b' }}>{m.score}</div> : null}
+      {m.score ? <div style={{ textAlign: 'center', fontWeight: 800, color: '#fbbf24', fontSize: 'clamp(13px, 1.6vw, 18px)', letterSpacing: '.02em', marginTop: 2 }}>{m.score}</div> : null}
     </div>
   );
 }
@@ -377,7 +392,7 @@ const PRESENT_CSS = `
 .fw{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
 .fw-b{position:absolute;width:5px;height:5px;border-radius:50%;opacity:0;transform:scale(.1);animation:fw-burst 2.6s ease-out infinite}
 @keyframes fw-burst{0%{transform:scale(.1);opacity:0}12%{opacity:1}70%{opacity:.9}100%{transform:scale(13);opacity:0}}
-.fw-line{position:absolute;width:2px;background:#334155}
-.fw-line-h{position:absolute;height:2px;background:#334155}
+.br-line{position:absolute;width:3px;background:#7c8aa5;border-radius:2px}
+.br-line-h{position:absolute;height:3px;background:#7c8aa5;border-radius:2px}
 @media (prefers-reduced-motion: reduce){.fw-b{animation-duration:6s;animation-iteration-count:2}}
 `;

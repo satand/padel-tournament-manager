@@ -76,12 +76,15 @@ export default async function PresentTournamentPage({ params }: { params: Promis
   }
 
   if (data.groups.length > 0) {
-    const slides: PresentSlide[] = data.groups.map((group) => ({
-      kind: 'group',
-      id: group.id,
-      title: group.name,
+    const items = data.groups.map((group) => ({
+      name: group.name,
       rows: calculateRanking(data.participants.filter((p) => p.groupId === group.id), data.matches.filter((m) => m.groupId === group.id), data.rules, avgMvp)
     }));
+    const slides: PresentSlide[] = [];
+    for (let i = 0; i < items.length; i += 2) {
+      const chunk = items.slice(i, i + 2);
+      slides.push({ kind: 'groups', id: `groups-${i}`, title: chunk.map((c) => c.name).join('  ·  '), groups: chunk });
+    }
     screens.push({ id: 'groups', label: 'Gironi', slides });
   }
 
