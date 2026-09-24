@@ -3,10 +3,10 @@ import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext, computeMvp, type TournamentContext } from '@/lib/server/serialize';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
-import { bracketPhaseReached, bracketPlacements, generalPhaseReached } from '@/lib/domain/finals';
-import { phaseLabel, matchStatusLabel } from '@/lib/domain/labels';
+import { generalPhaseReached } from '@/lib/domain/finals';
+import { phaseLabel, bracketLabel } from '@/lib/domain/labels';
 import type { Match } from '@/lib/domain/types';
-import { PresentCarousel, type PresentScreen, type PresentSlide } from '@/components/PresentCarousel';
+import { PresentCarousel, type ChampionWinner, type PresentScreen, type PresentSlide } from '@/components/PresentCarousel';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,36 +19,25 @@ async function loadPresentData(id: string): Promise<TournamentContext | null> {
   return toDomainContext(tournament);
 }
 
-function fmtWhen(iso?: string): string {
-  if (!iso) return 'Orario da assegnare';
-  return new Date(iso).toLocaleString('it-IT', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-}
-
-const BRACKET_SHORT: Record<string, string> = { GOLD: 'Gold', SILVER: 'Argento', UNICO: 'Tabellone' };
 const DONE: Match['status'][] = ['COMPLETED', 'WALKOVER', 'RETIRED'];
 
-function matchSlide(m: Match, names: Map<string, string>, courtNames: Map<string, string>): PresentSlide {
-  const done = DONE.includes(m.status);
-  const teamA = m.participantAId ? (names.get(m.participantAId) ?? 'in attesa') : 'in attesa';
-  const teamB = m.participantBId ? (names.get(m.participantBId) ?? 'in attesa') : 'in attesa';
-  const winnerName = done && m.winnerId ? (names.get(m.winnerId) ?? undefined) : undefined;
-  const score = m.sets.length ? m.sets.map((s) => `${s.gamesA}-${s.gamesB}`).join('  ') : '';
-  const bracketKey = m.bracket ?? 'UNICO';
-  return {
-    kind: 'match',
-    id: m.id,
-    title: `${phaseLabel(m.phase)}${BRACKET_SHORT[bracketKey] ? ` · ${BRACKET_SHORT[bracketKey]}` : ''}`,
-    phaseLabel: phaseLabel(m.phase),
-    bracketLabel: BRACKET_SHORT[bracketKey],
-    teamA,
-    teamB,
-    score,
-    statusLabel: matchStatusLabel(m.status),
-    done,
-    winnerName,
-    court: m.courtId ? courtNames.get(m.courtId) : undefined,
-    when: fmtWhen(m.scheduledAt)
-  };
+function bracketSlide(key: string, ms: Match[], names: Map<string, string>): PresentSlide {
+  const rounds = [...new Set(ms.map((m) => m.roundIndex ?? 0))].sort((a, b) => a - b);
+  const columns = rounds.map((r) => {
+    const rm = ms.filter((m) => (m.roundIndex ?? 0) === r);
+    const matches = rm.map((m) => {
+      const done = DONE.includes(m.status);
+      const teamA = m.participantAId ? (names.get(m.participantAId) ?? null) : null;
+      const teamB = m.participantBId ? (names.get(m.participantBId) ?? null) : null;
+      const winner: 'A' | 'B' | null =
+        done && m.winnerId ? (m.winnerId === m.participantAId ? 'A' : m.winnerId === m.participantBId ? 'B' : null) : null;
+      const score = m.sets.length ? m.sets.map((s) => `${s.gamesA}-${s.gamesB}`).join('  ') : '';
+      return { id: m.id, teamA, teamB, score, winner, done };
+    });
+    return { roundLabel: phaseLabel(rm[0]?.phase), matches };
+  });
+  const title = key === 'UNICO' ? 'Tabellone' : `Tabellone ${bracketLabel(key)}`;
+  return { kind: 'bracket', id: `bracket-${key}`, title, columns };
 }
 
 export default async function PresentTournamentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -57,7 +46,6 @@ export default async function PresentTournamentPage({ params }: { params: Promis
   if (!data) notFound();
 
   const names = new Map(data.participants.map((p) => [p.id, p.displayName]));
-  const courtNames = new Map(data.courts.map((c) => [c.id, c.name]));
   const avgMvp = averageMvpRatingByParticipant(data.participants, data.mvpVotes);
   const mvp = computeMvp(data);
 
@@ -71,14 +59,20 @@ export default async function PresentTournamentPage({ params }: { params: Promis
     if (final?.winnerId && DONE.includes(final.status)) return names.get(final.winnerId) ?? final.winnerId;
     return null;
   }
-  const champion = championOf('GOLD') ?? championOf('UNICO');
+  const goldWinner = championOf('GOLD');
   const silverWinner = championOf('SILVER');
+  const singleWinner = championOf('UNICO');
+  const champion = goldWinner ?? singleWinner;
 
   const screens: PresentScreen[] = [];
 
   const overall = calculateRanking(data.participants, data.matches, data.rules, avgMvp);
   if (overall.length > 0) {
-    screens.push({ id: 'standings', label: 'Classifica', slides: [{ kind: 'standings', id: 'standings', title: 'Classifica generale', rows: overall, phaseReached: generalPhaseReached(data.participants, data.matches, data.groups.length > 0 ? 'Gironi' : '—') }] });
+    screens.push({ id: 'standings', label: 'Classifica Generale', slides: [{ kind: 'standings', id: 'standings', title: 'Classifica generale', rows: overall, phaseReached: generalPhaseReached(data.participants, data.matches, data.groups.length > 0 ? 'Gironi' : '—') }] });
+  }
+
+  if (mvp.rows.length > 0) {
+    screens.push({ id: 'mvp', label: 'MVP', slides: [{ kind: 'mvp', id: 'mvp', title: 'Miglior giocatore', subtitle: `· fino alla ${MVP_THROUGH_LABEL[mvp.through]}`, rows: mvp.rows.slice(0, 12) }] });
   }
 
   if (data.groups.length > 0) {
@@ -91,54 +85,23 @@ export default async function PresentTournamentPage({ params }: { params: Promis
     screens.push({ id: 'groups', label: 'Gironi', slides });
   }
 
-  const placementTables = bracketPlacements(data.participants, data.matches);
-  if (placementTables.length > 0) {
-    const slides: PresentSlide[] = placementTables.map((t) => {
-      const key = t.bracket ?? 'UNICO';
-      const ms = byBracket.get(key) ?? [];
-      const ids = new Set(ms.flatMap((m) => [m.participantAId, m.participantBId]).filter((x): x is string => !!x));
-      const rows = calculateRanking(data.participants.filter((p) => ids.has(p.id)), ms, data.rules, avgMvp);
-      return {
-        kind: 'standings',
-        id: `place-${key}`,
-        title: t.bracket ? `Tabellone ${BRACKET_SHORT[t.bracket]}` : 'Tabellone',
-        rows,
-        phaseReached: bracketPhaseReached(t)
-      };
-    });
-    screens.push({ id: 'finals', label: 'Classifica tabelloni', slides });
+  const bracketSlides: PresentSlide[] = ['GOLD', 'SILVER', 'UNICO']
+    .filter((k) => byBracket.has(k))
+    .map((k) => bracketSlide(k, byBracket.get(k) ?? [], names));
+  if (bracketSlides.length > 0) {
+    screens.push({ id: 'finals', label: 'Fase Finale', slides: bracketSlides });
   }
 
-  const bracketOrder = ['GOLD', 'UNICO', 'SILVER'].filter((k) => byBracket.has(k));
-  const phaseMap = new Map<string, Match[]>();
-  for (const m of byBracket.get('GOLD') ?? []) phaseMap.set(m.phase ?? 'final', [...(phaseMap.get(m.phase ?? 'final') ?? []), m]);
-  for (const m of byBracket.get('UNICO') ?? []) phaseMap.set(m.phase ?? 'final', [...(phaseMap.get(m.phase ?? 'final') ?? []), m]);
-  for (const m of byBracket.get('SILVER') ?? []) phaseMap.set(m.phase ?? 'final', [...(phaseMap.get(m.phase ?? 'final') ?? []), m]);
-
-  const phaseEntries = [...phaseMap.entries()]
-    .map(([phase, ms]) => ({ phase, ms, roundMin: Math.min(...ms.map((m) => m.roundIndex ?? 0)), hasPending: ms.some((m) => ['SCHEDULED', 'IN_PROGRESS'].includes(m.status)) }))
-    .sort((a, b) => a.roundMin - b.roundMin);
-
-  let defaultPhaseScreen: string | undefined;
-  for (const entry of phaseEntries) {
-    const ordered = [...entry.ms].sort((a, b) => (bracketOrder.indexOf(a.bracket ?? 'UNICO') - bracketOrder.indexOf(b.bracket ?? 'UNICO')) || a.id.localeCompare(b.id));
-    screens.push({
-      id: `phase-${entry.phase}`,
-      label: phaseLabel(entry.phase),
-      slides: ordered.map((m) => matchSlide(m, names, courtNames))
-    });
-    if (entry.hasPending && !defaultPhaseScreen) defaultPhaseScreen = `phase-${entry.phase}`;
+  const winners: ChampionWinner[] = [];
+  if (singleWinner) winners.push({ rank: 1, label: 'Campione', team: singleWinner, tone: 'gold' });
+  if (goldWinner) winners.push({ rank: 1, label: 'Gold', team: goldWinner, tone: 'gold' });
+  if (silverWinner) winners.push({ rank: 2, label: 'Silver', team: silverWinner, tone: 'silver' });
+  if (winners.length > 0) {
+    const title = winners.length > 1 ? 'Campioni' : 'Campione';
+    screens.push({ id: 'champion', label: `🏆 ${title}`, slides: [{ kind: 'champion', id: 'champion', title, winners }] });
   }
 
-  if (mvp.rows.length > 0) {
-    screens.push({ id: 'mvp', label: 'MVP', slides: [{ kind: 'mvp', id: 'mvp', title: 'Miglior giocatore', subtitle: `· fino alla ${MVP_THROUGH_LABEL[mvp.through]}`, rows: mvp.rows.slice(0, 12) }] });
-  }
-
-  if (champion) {
-    screens.push({ id: 'champion', label: '🏆 Campione', slides: [{ kind: 'champion', id: 'champion', title: 'Campione', champion, silver: silverWinner ?? undefined }] });
-  }
-
-  const defaultScreenId = champion ? 'champion' : defaultPhaseScreen ?? (data.groups.length > 0 ? 'groups' : screens[0]?.id);
+  const defaultScreenId = champion ? 'champion' : bracketSlides.length > 0 ? 'finals' : data.groups.length > 0 ? 'groups' : screens[0]?.id;
   const slideMs = (data.settings?.presentSlideSeconds ?? 6) * 1000;
 
   return <PresentCarousel name={data.name} screens={screens} slideMs={slideMs} defaultScreenId={defaultScreenId} />;
