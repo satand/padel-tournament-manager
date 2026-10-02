@@ -116,7 +116,11 @@ export function toDomainContext(tournament: TournamentWithIncludes): TournamentC
     roundIndex: m.roundIndex,
     bracket: m.bracket ?? null,
     winnerId: m.winnerId ?? undefined,
-    note: m.note ?? undefined
+    note: m.note ?? undefined,
+    parentMatchIdA: m.parentMatchIdA,
+    parentMatchIdB: m.parentMatchIdB,
+    parentResultA: m.parentResultA ?? null,
+    parentResultB: m.parentResultB ?? null
   }));
 
   const mvpVotes: MVPVote[] = tournament.matches.flatMap((m) =>

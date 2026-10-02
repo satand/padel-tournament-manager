@@ -110,6 +110,10 @@ export type Match = {
   bracket?: 'GOLD' | 'SILVER' | null;
   winnerId?: string;
   note?: string;
+  parentMatchIdA?: string | null;
+  parentMatchIdB?: string | null;
+  parentResultA?: 'WINNER' | 'LOSER' | null;
+  parentResultB?: 'WINNER' | 'LOSER' | null;
   disciplinaryPenalties?: Record<string, number>;
 };
 

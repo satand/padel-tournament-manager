@@ -1,6 +1,7 @@
 // Logica pura per la fase finale: dimensionamento tabelloni, assegnazione Gold/Silver
 // in base al ranking globale dei qualificati (punti -> diff game -> somma MVP).
 
+import { isByeSide } from './calendar';
 import { phaseLabel, bracketLabel } from './labels';
 import type { Match, Participant } from './types';
 
@@ -208,4 +209,64 @@ export function generalPhaseReached(participants: Participant[], matches: Match[
     }
   }
   return map;
+}
+
+// ---- Colonne tabellone per la proiezione ----
+// Ricostruisce l'ordine reale degli slot: colonna base per id, turni successivi per
+// posizione del genitore A/B nella colonna precedente. feederA/feederB sono gli indici
+// di riga dei match-padre, usati per disegnare connettori edge-based.
+
+export type ProjectionBracketMatch = {
+  id: string;
+  teamA: string | null;
+  teamB: string | null;
+  sets: string[];
+  winner: 'A' | 'B' | null;
+  done: boolean;
+  byeA: boolean;
+  byeB: boolean;
+  feederA: number | null;
+  feederB: number | null;
+};
+
+export type ProjectionBracketColumn = {
+  roundLabel: string;
+  matches: ProjectionBracketMatch[];
+};
+
+const DONE_STATUSES: Match['status'][] = ['COMPLETED', 'WALKOVER', 'RETIRED'];
+
+export function buildProjectionBracketColumns(ms: Match[], names: Map<string, string>): ProjectionBracketColumn[] {
+  const rounds = [...new Set(ms.map((m) => m.roundIndex ?? 0))].sort((a, b) => a - b);
+  const cmpId = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  const slot = new Map<string, number>();
+
+  return rounds.map((r, c) => {
+    const rm = ms.filter((m) => (m.roundIndex ?? 0) === r);
+    if (c === 0) rm.sort((a, b) => cmpId(a.id, b.id));
+    else
+      rm.sort(
+        (a, b) =>
+          (slot.get(a.parentMatchIdA ?? a.parentMatchIdB ?? '') ?? Infinity) -
+            (slot.get(b.parentMatchIdA ?? b.parentMatchIdB ?? '') ?? Infinity) || cmpId(a.id, b.id)
+      );
+
+    const current = new Map<string, number>();
+    rm.forEach((m, row) => current.set(m.id, row));
+
+    const matches = rm.map((m) => {
+      const done = DONE_STATUSES.includes(m.status);
+      const teamA = m.participantAId ? (names.get(m.participantAId) ?? null) : null;
+      const teamB = m.participantBId ? (names.get(m.participantBId) ?? null) : null;
+      const winner: 'A' | 'B' | null =
+        done && m.winnerId ? (m.winnerId === m.participantAId ? 'A' : m.winnerId === m.participantBId ? 'B' : null) : null;
+      const sets = m.sets.map((s) => `${s.gamesA}-${s.gamesB}`);
+      const feederA = m.parentMatchIdA ? (slot.get(m.parentMatchIdA) ?? null) : null;
+      const feederB = m.parentMatchIdB ? (slot.get(m.parentMatchIdB) ?? null) : null;
+      return { id: m.id, teamA, teamB, sets, winner, done, byeA: isByeSide(m, 'A'), byeB: isByeSide(m, 'B'), feederA, feederB };
+    });
+
+    for (const [id, row] of current) slot.set(id, row);
+    return { roundLabel: phaseLabel(rm[0]?.phase), matches };
+  });
 }

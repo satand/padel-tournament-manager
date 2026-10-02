@@ -3,6 +3,7 @@ import {
   bracketPhaseReached,
   bracketPlacements,
   bracketSizeFor,
+  buildProjectionBracketColumns,
   clampGoldCount,
   defaultGoldCount,
   generalPhaseReached,
@@ -105,6 +106,66 @@ describe('finals — split Gold/Silver per piazzamento nel girone', () => {
     const { gold, silver } = splitGoldSilverByPlacement([qp('A', 9, 0, 1), qp('B', 8, 0, 1), qp('C', 7, 0, 2)], 1);
     expect(gold.length).toBe(3);
     expect(silver.length).toBe(0);
+  });
+});
+
+describe('finals — colonne tabellone proiezione', () => {
+  const pm = (
+    id: string,
+    roundIndex: number,
+    phase: string,
+    participantAId: string | null,
+    participantBId: string | null,
+    winnerId: string | null,
+    parentMatchIdA: string | null = null,
+    parentMatchIdB: string | null = null
+  ): Match => ({
+    id,
+    participantAId,
+    participantBId,
+    status: winnerId ? 'COMPLETED' : 'SCHEDULED',
+    sets: winnerId ? [{ setNumber: 1, gamesA: 6, gamesB: 3 }] : [],
+    winnerId: winnerId ?? undefined,
+    roundIndex,
+    phase,
+    parentMatchIdA,
+    parentMatchIdB
+  });
+
+  it('riordina gli slot anche se i match arrivano mescolati e ricollega il figlio ai genitori', () => {
+    const names = new Map([
+      ['p0', 'S0-A'],
+      ['p1', 'S0-B'],
+      ['p2', 'S1-A'],
+      ['p3', 'S1-B']
+    ]);
+    const semi0 = pm('m1', 1, 'semifinal', 'p0', 'p1', 'p0');
+    const semi1 = pm('m2', 1, 'semifinal', 'p2', 'p3', 'p2');
+    const final = pm('m3', 2, 'final', 'p0', 'p2', null, 'm1', 'm2');
+
+    const columns = buildProjectionBracketColumns([final, semi1, semi0], names);
+    expect(columns.map((c) => c.roundLabel)).toEqual(['Semifinale', 'Finale']);
+    expect(columns[0].matches.map((m) => m.id)).toEqual(['m1', 'm2']);
+    expect(columns[1].matches.map((m) => m.id)).toEqual(['m3']);
+    expect(columns[1].matches[0]).toMatchObject({ feederA: 0, feederB: 1, teamA: 'S0-A', teamB: 'S1-A', winner: null });
+  });
+
+  it("con piu' figli nello stesso turno usa il primo genitore come slot", () => {
+    const names = new Map([['p0', 'A'], ['p1', 'B'], ['p2', 'C'], ['p3', 'D']]);
+    const round1 = [
+      pm('r1', 1, 'quarterfinal', 'p0', null, 'p0'),
+      pm('r2', 1, 'quarterfinal', 'p1', null, 'p1'),
+      pm('r3', 1, 'quarterfinal', 'p2', null, 'p2'),
+      pm('r4', 1, 'quarterfinal', 'p3', null, 'p3')
+    ];
+    const child2 = pm('c2', 2, 'semifinal', 'p2', 'p3', null, 'r3', 'r4');
+    const child1 = pm('c1', 2, 'semifinal', 'p0', 'p1', null, 'r1', 'r2');
+
+    const columns = buildProjectionBracketColumns([child2, child1, ...round1], names);
+    expect(columns[0].matches.map((m) => m.id)).toEqual(['r1', 'r2', 'r3', 'r4']);
+    expect(columns[1].matches.map((m) => m.id)).toEqual(['c1', 'c2']);
+    expect(columns[1].matches[0]).toMatchObject({ feederA: 0, feederB: 1 });
+    expect(columns[1].matches[1]).toMatchObject({ feederA: 2, feederB: 3 });
   });
 });
 

@@ -15,6 +15,8 @@ export type BracketMatch = {
   done: boolean;
   byeA: boolean;
   byeB: boolean;
+  feederA?: number | null;
+  feederB?: number | null;
 };
 export type BracketColumn = { roundLabel: string; matches: BracketMatch[] };
 export type ChampionWinner = { rank: number; label: string; team: string; tone: 'gold' | 'silver' };
@@ -313,6 +315,7 @@ function BracketView({ columns, title }: { columns: BracketColumn[]; title: stri
   const height = maxN * (CARD_H + GAP_Y) - GAP_Y;
   const colPct = 100 / nC;
   const gapPct = PAD * colPct;
+  const centerAt = (col: number, row: number) => ((row + 0.5) / (columns[col]?.matches.length || 1)) * height;
 
   const connectors: React.ReactNode[] = [];
   for (let ci = 0; ci < nC - 1; ci++) {
@@ -321,18 +324,45 @@ function BracketView({ columns, title }: { columns: BracketColumn[]; title: stri
     const boundary = ((ci + 1) * colPct).toFixed(4);
     const stubLeft = ((ci + 1 - PAD) * colPct).toFixed(4);
     for (let j = 0; j < nr2; j++) {
-      const a = 2 * j;
-      const b = 2 * j + 1;
-      if (a >= nr) continue;
-      const cA = ((a + 0.5) / nr) * height;
-      const cB = b < nr ? ((b + 0.5) / nr) * height : cA;
-      const cN = ((j + 0.5) / nr2) * height;
-      connectors.push(
-        <span key={`va-${ci}-${j}`} className="br-line" style={{ left: `calc(${boundary}% - 1.5px)`, top: cA, height: Math.max(0, cB - cA) }} />,
-        <span key={`ha-${ci}-${j}`} className="br-line-h" style={{ left: `${stubLeft}%`, top: cA - 1.5, width: `${gapPct.toFixed(4)}%` }} />,
-        <span key={`hb-${ci}-${j}`} className="br-line-h" style={{ left: `${stubLeft}%`, top: cB - 1.5, width: `${gapPct.toFixed(4)}%` }} />,
-        <span key={`hn-${ci}-${j}`} className="br-line-h" style={{ left: `${boundary}%`, top: cN - 1.5, width: `${gapPct.toFixed(4)}%` }} />
-      );
+      const child = columns[ci + 1].matches[j];
+      const useIndexFallback = child.feederA == null && child.feederB == null;
+      const rawA = useIndexFallback ? 2 * j : child.feederA;
+      const rawB = useIndexFallback ? 2 * j + 1 : child.feederB;
+      const a = typeof rawA === 'number' && rawA >= 0 && rawA < nr ? rawA : null;
+      const b = typeof rawB === 'number' && rawB >= 0 && rawB < nr ? rawB : null;
+      if (a == null && b == null) continue;
+
+      const cN = centerAt(ci + 1, j);
+      if (a != null && b != null) {
+        const low = Math.min(a, b);
+        const high = Math.max(a, b);
+        const cA = centerAt(ci, low);
+        const cB = centerAt(ci, high);
+        connectors.push(
+          <span key={`va-${ci}-${j}`} className="br-line" style={{ left: `calc(${boundary}% - 1.5px)`, top: cA, height: Math.max(0, cB - cA) }} />,
+          <span key={`ha-${ci}-${j}`} className="br-line-h" style={{ left: `${stubLeft}%`, top: cA - 1.5, width: `${gapPct.toFixed(4)}%` }} />,
+          <span key={`hb-${ci}-${j}`} className="br-line-h" style={{ left: `${stubLeft}%`, top: cB - 1.5, width: `${gapPct.toFixed(4)}%` }} />,
+          <span key={`hn-${ci}-${j}`} className="br-line-h" style={{ left: `${boundary}%`, top: cN - 1.5, width: `${gapPct.toFixed(4)}%` }} />
+        );
+      } else if (a != null) {
+        const cA = centerAt(ci, a);
+        const top = Math.min(cA, cN);
+        const lineH = Math.abs(cN - cA);
+        connectors.push(
+          <span key={`va-${ci}-${j}`} className="br-line" style={{ left: `calc(${boundary}% - 1.5px)`, top, height: lineH }} />,
+          <span key={`ha-${ci}-${j}`} className="br-line-h" style={{ left: `${stubLeft}%`, top: cA - 1.5, width: `${gapPct.toFixed(4)}%` }} />,
+          <span key={`hn-${ci}-${j}`} className="br-line-h" style={{ left: `${boundary}%`, top: cN - 1.5, width: `${gapPct.toFixed(4)}%` }} />
+        );
+      } else if (b != null) {
+        const cB = centerAt(ci, b);
+        const top = Math.min(cB, cN);
+        const lineH = Math.abs(cN - cB);
+        connectors.push(
+          <span key={`va-${ci}-${j}`} className="br-line" style={{ left: `calc(${boundary}% - 1.5px)`, top, height: lineH }} />,
+          <span key={`hb-${ci}-${j}`} className="br-line-h" style={{ left: `${stubLeft}%`, top: cB - 1.5, width: `${gapPct.toFixed(4)}%` }} />,
+          <span key={`hn-${ci}-${j}`} className="br-line-h" style={{ left: `${boundary}%`, top: cN - 1.5, width: `${gapPct.toFixed(4)}%` }} />
+        );
+      }
     }
   }
 

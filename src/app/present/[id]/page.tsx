@@ -3,9 +3,8 @@ import { prisma } from '@/lib/server/db';
 import { tournamentInclude, toDomainContext, computeMvp, type TournamentContext } from '@/lib/server/serialize';
 import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/mvp';
-import { generalPhaseReached } from '@/lib/domain/finals';
-import { isByeSide } from '@/lib/domain/calendar';
-import { phaseLabel, bracketLabel } from '@/lib/domain/labels';
+import { generalPhaseReached, buildProjectionBracketColumns } from '@/lib/domain/finals';
+import { bracketLabel } from '@/lib/domain/labels';
 import type { Match } from '@/lib/domain/types';
 import { PresentCarousel, type ChampionWinner, type PresentScreen, type PresentSlide } from '@/components/PresentCarousel';
 
@@ -23,22 +22,8 @@ async function loadPresentData(id: string): Promise<TournamentContext | null> {
 const DONE: Match['status'][] = ['COMPLETED', 'WALKOVER', 'RETIRED'];
 
 function bracketSlide(key: string, ms: Match[], names: Map<string, string>): PresentSlide {
-  const rounds = [...new Set(ms.map((m) => m.roundIndex ?? 0))].sort((a, b) => a - b);
-  const columns = rounds.map((r) => {
-    const rm = ms.filter((m) => (m.roundIndex ?? 0) === r);
-    const matches = rm.map((m) => {
-      const done = DONE.includes(m.status);
-      const teamA = m.participantAId ? (names.get(m.participantAId) ?? null) : null;
-      const teamB = m.participantBId ? (names.get(m.participantBId) ?? null) : null;
-      const winner: 'A' | 'B' | null =
-        done && m.winnerId ? (m.winnerId === m.participantAId ? 'A' : m.winnerId === m.participantBId ? 'B' : null) : null;
-      const sets = m.sets.map((s) => `${s.gamesA}-${s.gamesB}`);
-      return { id: m.id, teamA, teamB, sets, winner, done, byeA: isByeSide(m, 'A'), byeB: isByeSide(m, 'B') };
-    });
-    return { roundLabel: phaseLabel(rm[0]?.phase), matches };
-  });
   const title = key === 'UNICO' ? 'Tabellone' : `Tabellone ${bracketLabel(key)}`;
-  return { kind: 'bracket', id: `bracket-${key}`, title, columns };
+  return { kind: 'bracket', id: `bracket-${key}`, title, columns: buildProjectionBracketColumns(ms, names) };
 }
 
 export default async function PresentTournamentPage({ params }: { params: Promise<{ id: string }> }) {
