@@ -28,6 +28,7 @@ export type TieBreakerKey =
   | 'gameDiff'
   | 'gamesWon'
   | 'gamesLostAsc'
+  | 'levelAsc'
   | 'avgMvpRating'
   | 'manualDraw'
   | 'manualOrder';
@@ -134,6 +135,7 @@ export type RankingRow = {
   gameDiff: number;
   winPercentage: number;
   avgGamesWon: number;
+  level?: number;
   avgMvpRating?: number;
   manualOrder?: number;
 };
@@ -204,6 +206,7 @@ export const defaultTournamentRules: TournamentRules = {
     'gameDiff',
     'gamesWon',
     'gamesLostAsc',
+    'levelAsc',
     'avgMvpRating',
     'manualOrder'
   ]

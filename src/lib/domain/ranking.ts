@@ -36,7 +36,7 @@ export function calculateMiniLeague(
   const miniMatches = matches.filter(
     (m) => m.participantAId != null && m.participantBId != null && tiedSet.has(m.participantAId) && tiedSet.has(m.participantBId) && isScorableMatch(m)
   );
-  return calculateRanking(miniParticipants, miniMatches, { ...rules, tieBreakers: ['points', 'setDiff', 'gameDiff', 'gamesWon', 'gamesLostAsc', 'manualOrder'] });
+  return calculateRanking(miniParticipants, miniMatches, { ...rules, tieBreakers: ['points', 'setDiff', 'gameDiff', 'gamesWon', 'gamesLostAsc', 'levelAsc', 'manualOrder'] });
 }
 
 function initialiseStats(participants: Participant[], avgMvpRatingByParticipant: Record<string, number>): Record<string, InternalStats> {
@@ -58,6 +58,7 @@ function initialiseStats(participants: Participant[], avgMvpRatingByParticipant:
       gameDiff: 0,
       winPercentage: 0,
       avgGamesWon: 0,
+      level: participant.level ?? 1,
       avgMvpRating: avgMvpRatingByParticipant[participant.id] ?? undefined,
       manualOrder: participant.manualOrder,
       opponents: {}
@@ -288,6 +289,8 @@ function compareByKey(a: RankingRow, b: RankingRow, key: TieBreakerKey, matches:
       return desc(a.gamesWon, b.gamesWon);
     case 'gamesLostAsc':
       return asc(a.gamesLost, b.gamesLost);
+    case 'levelAsc':
+      return asc(a.level ?? 1, b.level ?? 1);
     case 'avgMvpRating':
       return desc(a.avgMvpRating ?? 0, b.avgMvpRating ?? 0);
     case 'manualOrder':

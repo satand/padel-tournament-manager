@@ -75,4 +75,30 @@ describe('ranking engine', () => {
     expect(ranking[0].gamesWon).toBe(20);
     expect(ranking[0].gameDiff).toBe(9);
   });
+
+  it('usa livello di partenza più basso prima della media MVP', () => {
+    const levelTeams: Participant[] = [
+      { id: 'a', displayName: 'A', type: 'TEAM', playerIds: ['a1', 'a2'], level: 2 },
+      { id: 'b', displayName: 'B', type: 'TEAM', playerIds: ['b1', 'b2'], level: 1 }
+    ];
+    const matches: Match[] = [
+      { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 6, gamesB: 6 }] }
+    ];
+
+    const ranking = calculateRanking(levelTeams, matches, { ...defaultTournamentRules, allowDraws: true }, { a: 10, b: 9 });
+    expect(ranking.map((row) => row.participantId)).toEqual(['b', 'a']);
+  });
+
+  it('usa il default 1 quando una squadra non ha livello', () => {
+    const teams: Participant[] = [
+      { id: 'a', displayName: 'A', type: 'TEAM', playerIds: ['a1', 'a2'], level: 1.5 },
+      { id: 'b', displayName: 'B', type: 'TEAM', playerIds: ['b1', 'b2'] }
+    ];
+    const matches: Match[] = [
+      { id: 'm1', participantAId: 'a', participantBId: 'b', status: 'COMPLETED', sets: [{ setNumber: 1, gamesA: 6, gamesB: 6 }] }
+    ];
+
+    const ranking = calculateRanking(teams, matches, { ...defaultTournamentRules, allowDraws: true });
+    expect(ranking.map((row) => row.participantId)).toEqual(['b', 'a']);
+  });
 });

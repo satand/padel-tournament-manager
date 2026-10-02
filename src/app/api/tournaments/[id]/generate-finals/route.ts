@@ -5,7 +5,7 @@ import { closedResponse } from '@/lib/server/guards';
 import { resolveBracket } from '@/lib/server/bracket';
 import { buildFinalBracket, type FinalSlot } from '@/lib/domain/scheduler';
 import { bracketSizeFor, orderQualifiers, splitGoldSilverByPlacement, type ComparableQualified, type FinalRound } from '@/lib/domain/finals';
-import { sumMvpRatingByParticipant } from '@/lib/domain/mvp';
+import { averageMvpRatingByParticipant, sumMvpRatingByParticipant } from '@/lib/domain/mvp';
 import { calculateRanking } from '@/lib/domain/ranking';
 
 const finalsPredicate = { phase: { not: 'group' } } as const;
@@ -62,6 +62,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const groupMatchIds = new Set(groupMatches.map((m) => m.id));
   const groupVotes = ctx.mvpVotes.filter((v) => groupMatchIds.has(v.matchId));
   const mvpSum = sumMvpRatingByParticipant(ctx.participants, groupVotes);
+  const avgMvp = averageMvpRatingByParticipant(ctx.participants, groupVotes);
+  // Classifica generale uniforme usata per discriminare le qualificate a pari piazzamento nel girone.
+  const generalRanking = calculateRanking(ctx.participants, groupMatches, rules, avgMvp);
+  const generalPositionByParticipant = new Map(generalRanking.map((row) => [row.participantId, row.position] as const));
 
   // Pool dei qualificati: top "qualifiedPerGroup" per girone (ordinamento interno del girone invariato).
   const pool: ComparableQualified[] = [];
@@ -76,12 +80,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         points: row.points,
         gameDiff: row.gameDiff,
         mvpSum: mvpSum[row.participantId] ?? 0,
-        groupPlacement: row.position
+        groupPlacement: row.position,
+        generalPosition: generalPositionByParticipant.get(row.participantId)
       });
     }
   }
 
-  // Ranking globale cross-girone: punti -> differenza game -> somma MVP -> nome.
+  // Ordinamento globale uniforme: usa generalPosition quando disponibile.
   const ordered = orderQualifiers(pool);
 
   const byId = new Map(ctx.participants.map((p) => [p.id, p]));

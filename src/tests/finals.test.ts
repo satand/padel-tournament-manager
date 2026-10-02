@@ -35,6 +35,15 @@ describe('finals — ordine qualificati cross-girone', () => {
     const ordered = orderQualifiers([q('Zeta', 3, 0, 0), q('Alfa', 3, 0, 0)]).map((r) => r.id);
     expect(ordered).toEqual(['Alfa', 'Zeta']);
   });
+
+  it('usa generalPosition quando disponibile, anche sopra i criteri fallback', () => {
+    const ordered = orderQualifiers([
+      { ...q('A', 10, 10, 10), generalPosition: 5 },
+      { ...q('B', 9, 9, 9), generalPosition: 4 },
+      { ...q('C', 8, 8, 8), generalPosition: 3 }
+    ]).map((r) => r.id);
+    expect(ordered).toEqual(['C', 'B', 'A']);
+  });
 });
 
 describe('finals — dimensionamento tabellone', () => {
@@ -100,6 +109,17 @@ describe('finals — split Gold/Silver per piazzamento nel girone', () => {
     const pool = [qp('A', 6, 1, 1), qp('B', 0, -1, 2), qp('C', 6, 5, 1), qp('D', 0, -1, 2)];
     const { gold } = splitGoldSilverByPlacement(pool, 2);
     expect(gold.map((r) => r.id)).toEqual(['C', 'A']); // tra i due 1°, prima C (diff game maggiore)
+  });
+
+  it('usa generalPosition per discriminare a pari piazzamento nel girone', () => {
+    const pool = [
+      { ...qp('A', 6, 1, 1), generalPosition: 10 },
+      { ...qp('B', 0, -1, 2), generalPosition: 100 },
+      { ...qp('C', 6, 5, 1), generalPosition: 20 },
+      { ...qp('D', 0, -1, 2), generalPosition: 200 }
+    ];
+    const { gold } = splitGoldSilverByPlacement(pool, 2);
+    expect(gold.map((r) => r.id)).toEqual(['A', 'C']); // A ha generalPosition migliore di C
   });
 
   it('con meno di 4 qualificate non divide', () => {
