@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/server/db';
 import { closedResponse } from '@/lib/server/guards';
+import { isValidTimezone } from '@/lib/domain/time';
 
 function asInt(value: unknown): number | undefined {
   const n = typeof value === 'string' ? Number(value) : value;
@@ -52,6 +53,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const projSec = asInt(body.presentSlideSeconds);
   if (projSec != null) data.presentSlideSeconds = Math.min(120, Math.max(2, projSec));
 
+  // Fuso orario: solo visualizzazione, modificabile in ogni stato (validato IANA).
+  if (typeof body.timezone === 'string' && isValidTimezone(body.timezone)) data.timezone = body.timezone;
+
   if (tournament.status === 'DRAFT') {
     // Girone: solo "A target" o "A tempo" (il target è `targetGames`).
     const structuralInt = ['targetGames', 'groupCount', 'qualifiedPerGroup'];
@@ -67,6 +71,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     for (const key of ['mvpEnabled', 'allowDraws'] as const) {
       if (typeof body[key] === 'boolean') data[key] = body[key];
     }
+    if (typeof body.assignGroupTimes === 'boolean') data.assignGroupTimes = body.assignGroupTimes;
 
     // Punti classifica: aggiorna solo win/loss preservando gli altri campi di scoreRules.
     const pointsWin = asInt(body.pointsWin);

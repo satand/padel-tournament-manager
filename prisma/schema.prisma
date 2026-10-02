@@ -158,6 +158,8 @@ model TournamentSettings {
   finalStartRoundSilver  FinalStartRound?
   splitGoldSilver        Boolean         @default(false)
   mvpThroughPhase        MvpPhase        @default(GROUP)
+  timezone               String          @default("Europe/Rome")
+  assignGroupTimes       Boolean         @default(true)
   presentSlideSeconds    Int?
   mvpWeights             Json
   scoreRules             Json

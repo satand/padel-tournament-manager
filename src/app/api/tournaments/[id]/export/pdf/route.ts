@@ -5,6 +5,7 @@ import { calculateRanking } from '@/lib/domain/ranking';
 import { averageMvpRatingByParticipant } from '@/lib/domain/mvp';
 import { generalPhaseReached } from '@/lib/domain/finals';
 import { buildMvpPdfModel, buildParticipantsPdfModel, buildRankingPdfModel } from '@/lib/domain/pdfmodels';
+import { formatLongDate } from '@/lib/domain/time';
 import { renderTablePdf } from '@/lib/server/pdf';
 
 export const runtime = 'nodejs';
@@ -27,9 +28,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
   const ctx = toDomainContext(tournament);
   const avgMvp = averageMvpRatingByParticipant(ctx.participants, ctx.mvpVotes);
-  const dateLabel = ctx.startsAt
-    ? new Date(ctx.startsAt).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    : null;
+  const dateLabel = ctx.startsAt ? formatLongDate(ctx.startsAt, ctx.settings?.timezone) : null;
 
   const model =
     type === 'ranking'

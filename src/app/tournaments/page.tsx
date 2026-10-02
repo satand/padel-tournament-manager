@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { prisma } from '@/lib/server/db';
+import { formatDateTime } from '@/lib/domain/time';
 import { DeleteTournamentButton } from '@/components/DeleteTournamentButton';
 import { QuickSeedTitle } from '@/components/QuickSeedTitle';
 
@@ -42,7 +43,7 @@ export default async function TournamentsListPage() {
                   <h3 style={{ marginTop: 8 }}>{t.name}</h3>
                   {t.startsAt && (
                     <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
-                      Inizio: {new Date(t.startsAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      Inizio: {formatDateTime(t.startsAt ? t.startsAt.toISOString() : null)}
                     </div>
                   )}
                 </div>

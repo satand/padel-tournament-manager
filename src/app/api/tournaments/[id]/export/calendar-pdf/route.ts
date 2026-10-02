@@ -27,7 +27,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     matches: ctx.matches,
     participantNames: new Map(ctx.participants.map((p) => [p.id, p.displayName])),
     groupNames: new Map(ctx.groups.map((g) => [g.id, g.name])),
-    courtNames: new Map(ctx.courts.map((c) => [c.id, c.name]))
+    courtNames: new Map(ctx.courts.map((c) => [c.id, c.name])),
+    timeZone: ctx.settings?.timezone
   });
 
   const doc = await PDFDocument.create();

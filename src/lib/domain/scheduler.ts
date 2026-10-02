@@ -9,6 +9,7 @@ export type ScheduleInput = {
   matchDurationMinutes: number;
   changeoverMinutes: number;
   maxMatchesPerPlayerDay: number | null;
+  assignTimes?: boolean; // false => assegna solo il campo, nessun orario
 };
 
 export function generateRoundRobinMatches(participants: Participant[], groupId?: string): Match[] {
@@ -101,6 +102,13 @@ export function generateKnockoutBracket(participants: Participant[], includeThir
 }
 
 export function assignSchedule(matches: Match[], input: ScheduleInput): Match[] {
+  // Senza calcolo orario: ruota solo i campi e lascia scheduledAt a null.
+  if (input.assignTimes === false) {
+    const courts = [...input.courts].sort((a, b) => a.order - b.order);
+    if (courts.length === 0) return matches.map((m) => ({ ...m }));
+    return matches.map((m, i) => ({ ...m, courtId: courts[i % courts.length].id, scheduledAt: undefined }));
+  }
+
   const scheduled: Match[] = [];
   const playerLastTime = new Map<string, Date>();
   const playerMatchCount = new Map<string, number>();

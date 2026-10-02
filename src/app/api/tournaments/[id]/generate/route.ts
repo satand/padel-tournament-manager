@@ -89,7 +89,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     warmUpMinutes: tournament.settings?.warmUpMinutes ?? 5,
     matchDurationMinutes: tournament.settings?.matchDurationMinutes ?? 30,
     changeoverMinutes: tournament.settings?.changeoverMinutes ?? 15,
-    maxMatchesPerPlayerDay: tournament.settings ? tournament.settings.maxMatchesPerPlayerDay : 6
+    maxMatchesPerPlayerDay: tournament.settings ? tournament.settings.maxMatchesPerPlayerDay : 6,
+    assignTimes: tournament.settings ? tournament.settings.assignGroupTimes !== false : true
   });
 
   for (const match of scheduledMatches) {

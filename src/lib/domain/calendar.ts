@@ -3,6 +3,7 @@
 
 import type { Match, Participant } from './types';
 import { bracketLabel } from './labels';
+import { dayKey, formatDay, formatLongDate, formatTime } from './time';
 
 const isFinal = (m: Match) => !!m.phase && m.phase !== 'group' && m.phase !== 'round-robin';
 const tkey = (m: Match) => (m.scheduledAt ? Date.parse(m.scheduledAt) : Number.POSITIVE_INFINITY);
@@ -46,11 +47,11 @@ export function calendarGroups(matches: Match[], opts?: { groupNames?: Map<strin
   return groups;
 }
 
-export function matchDay(m: Match): string {
-  return m.scheduledAt ? new Date(m.scheduledAt).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+export function matchDay(m: Match, tz?: string | null): string {
+  return formatDay(m.scheduledAt, tz);
 }
-export function matchTime(m: Match): string {
-  return m.scheduledAt ? new Date(m.scheduledAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
+export function matchTime(m: Match, tz?: string | null): string {
+  return formatTime(m.scheduledAt, tz);
 }
 export function matchResult(m: Match): string {
   return m.sets.map((s) => `${s.gamesA}-${s.gamesB}`).join(' ') || '-';
@@ -75,8 +76,9 @@ export function buildCalendarPdfModel(opts: {
   participantNames?: Map<string, string>;
   groupNames?: Map<string, string>;
   courtNames?: Map<string, string>;
+  timeZone?: string | null;
 }): CalendarPdfModel {
-  const { title, startsAt, matches } = opts;
+  const { title, startsAt, matches, timeZone } = opts;
   const name = (id: string | null) => (id ? opts.participantNames?.get(id) ?? id : '-');
   const court = (id: string | undefined) => (id ? opts.courtNames?.get(id) ?? id : '-');
   const sideName = (m: Match, side: 'A' | 'B') => {
@@ -84,18 +86,18 @@ export function buildCalendarPdfModel(opts: {
     return id ? name(id) : isByeSide(m, side) ? 'BYE' : '-';
   };
 
-  const days = matches.filter((m) => m.scheduledAt).map(matchDay).filter(Boolean);
-  const distinct = new Set(days);
+  const scheduled = matches.filter((m) => m.scheduledAt);
+  const distinct = new Set(scheduled.map((m) => dayKey(m.scheduledAt, timeZone)));
   const showDay = distinct.size > 1;
 
   let dateLabel: string | null = null;
-  if (startsAt) dateLabel = new Date(startsAt).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  else if (distinct.size === 1) dateLabel = days[0];
+  if (startsAt) dateLabel = formatLongDate(startsAt, timeZone);
+  else if (distinct.size === 1) dateLabel = formatDay(scheduled[0]?.scheduledAt, timeZone);
 
   const sections: CalendarPdfSection[] = calendarGroups(matches, { groupNames: opts.groupNames }).map((g) => ({
     key: g.key,
     label: g.label,
-    rows: g.matches.map((m) => ({ teamA: sideName(m, 'A'), teamB: sideName(m, 'B'), court: court(m.courtId), day: matchDay(m), time: matchTime(m), result: matchResult(m) }))
+    rows: g.matches.map((m) => ({ teamA: sideName(m, 'A'), teamB: sideName(m, 'B'), court: court(m.courtId), day: matchDay(m, timeZone), time: matchTime(m, timeZone), result: matchResult(m) }))
   }));
 
   return { title, dateLabel, showDay, sections };

@@ -51,9 +51,9 @@ export function groupRankingsToCsv(groups: { name: string; rows: RankingRow[] }[
 
 export function matchesToCsv(
   matches: Match[],
-  opts: { participantNames?: Map<string, string>; groupNames?: Map<string, string>; courtNames?: Map<string, string> } = {}
+  opts: { participantNames?: Map<string, string>; groupNames?: Map<string, string>; courtNames?: Map<string, string>; timeZone?: string | null } = {}
 ): string {
-  const { participantNames, groupNames, courtNames } = opts;
+  const { participantNames, groupNames, courtNames, timeZone } = opts;
   const pname = (id: string | null | undefined) => (id ? participantNames?.get(id) ?? id : '');
   const gname = (id: string | null | undefined) => (id ? groupNames?.get(id) ?? '' : '');
   const cname = (id: string | null | undefined) => (id ? courtNames?.get(id) ?? '' : '');
@@ -71,8 +71,8 @@ export function matchesToCsv(
     sideName(match, 'A'),
     sideName(match, 'B'),
     cname(match.courtId),
-    matchDay(match),
-    matchTime(match),
+    matchDay(match, timeZone),
+    matchTime(match, timeZone),
     match.status,
     match.sets.map((set) => `${set.gamesA}-${set.gamesB}`).join(' '),
     pname(match.winnerId ?? null)

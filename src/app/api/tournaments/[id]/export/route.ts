@@ -29,7 +29,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const avgMvp = averageMvpRatingByParticipant(ctx.participants, ctx.mvpVotes);
 
   let csv = '';
-  if (type === 'calendar') csv = matchesToCsv(ctx.matches, { participantNames: names, groupNames, courtNames });
+  if (type === 'calendar') csv = matchesToCsv(ctx.matches, { participantNames: names, groupNames, courtNames, timeZone: ctx.settings?.timezone });
   else if (type === 'ranking') csv = rankingToCsv(calculateRanking(ctx.participants, ctx.matches, ctx.rules, avgMvp), generalPhaseReached(ctx.participants, ctx.matches, ctx.groups.length > 0 ? 'Gironi' : '—'));
   else if (type === 'finals') {
     const finals = ctx.matches.filter((m) => !!m.phase && m.phase !== 'group');

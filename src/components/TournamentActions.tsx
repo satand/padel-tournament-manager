@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { TournamentSettings } from '@prisma/client';
+import { formatDateTime, TIMEZONE_OPTIONS } from '@/lib/domain/time';
 
 type ParticipantRow = { id: string; displayName: string; level: number | null; players: { id: string; name: string }[] };
 type GroupRow = { id: string; name: string };
@@ -71,6 +72,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
   const [savingDate, setSavingDate] = useState(false);
 
   const [presentSlideSeconds, setPresentSlideSeconds] = useState<number | ''>(settings?.presentSlideSeconds ?? 6);
+  const [timezone, setTimezone] = useState<string>(settings?.timezone ?? 'Europe/Rome');
   const [savingProj, setSavingProj] = useState(false);
 
   const [savingStruct, setSavingStruct] = useState(false);
@@ -81,6 +83,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
     groupCount: number; qualifiedPerGroup: number; finalStartRound: string;
     finalStartRoundGold: string; finalStartRoundSilver: string; qualifiedForGold: number;
     splitGoldSilver: boolean; mvpEnabled: boolean; mvpThroughPhase: string;
+    assignGroupTimes: boolean;
     pointsWin: number; pointsLoss: number;
   }>({
     scoringMode: settings?.scoringMode === 'SETS' ? 'GAMES_TARGET' : (settings?.scoringMode ?? 'GAMES_TARGET'),
@@ -98,6 +101,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
     splitGoldSilver: settings?.splitGoldSilver ?? true,
     mvpEnabled: settings?.mvpEnabled ?? true,
     mvpThroughPhase: settings?.mvpThroughPhase ?? 'GROUP',
+    assignGroupTimes: settings?.assignGroupTimes ?? true,
     pointsWin: structPoints.win ?? 3,
     pointsLoss: structPoints.loss ?? 0
   });
@@ -235,11 +239,11 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
       const res = await fetch(`/api/tournaments/${tournamentId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ presentSlideSeconds: clamped })
+        body: JSON.stringify({ presentSlideSeconds: clamped, timezone })
       });
       if (!res.ok) throw new Error('Impossibile salvare il tempo di proiezione.');
       setPresentSlideSeconds(clamped);
-      setMessageLater('success', 'Tempo di cambio slide salvato.');
+      setMessageLater('success', 'Impostazioni salvate.');
       router.refresh();
     } catch (err) {
       setMessageLater('error', err instanceof Error ? err.message : 'Errore.');
@@ -271,6 +275,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
           splitGoldSilver: struct.splitGoldSilver,
           mvpEnabled: struct.mvpEnabled,
           mvpThroughPhase: struct.mvpThroughPhase,
+          assignGroupTimes: struct.assignGroupTimes,
           pointsWin: struct.pointsWin,
           pointsLoss: struct.pointsLoss
         })
@@ -362,7 +367,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
             ) : (
               <>
                 <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 10, background: '#f8fafc', fontSize: 14 }}>
-                  {startsAt ? new Date(startsAt).toLocaleString('it-IT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Non impostata'}
+                  {startsAt ? formatDateTime(startsAt, timezone) : 'Non impostata'}
                 </div>
                 <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>Modificabile solo quando il torneo è in bozza.</p>
               </>
@@ -373,14 +378,20 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
 
       <SectionDivider />
       <div>
-        <h3>Schermo di proiezione</h3>
-        <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Secondi di permanenza di ogni slide nel carosello della schermata di proiezione (2–120).</p>
+        <h3>Generale e proiezione</h3>
+        <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>Secondi di permanenza di ogni slide nel carosello (2–120) e fuso orario di riferimento per tutti gli orari del torneo (gestisce ora solare/legale).</p>
         <div className="form-grid">
           <div className="field"><label>Cambio automatico slide (secondi)</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <input type="number" min={2} max={120} value={presentSlideSeconds} onChange={(e) => setPresentSlideSeconds(e.target.value === '' ? '' : Number(e.target.value))} style={{ ...inputStyle, flex: '1 1 140px', minWidth: 0 }} />
-              <button className="button secondary" disabled={savingProj} onClick={saveProiezione} style={{ flexShrink: 0 }}>{savingProj ? 'Salvataggio...' : 'Salva proiezione'}</button>
-            </div>
+            <input type="number" min={2} max={120} value={presentSlideSeconds} onChange={(e) => setPresentSlideSeconds(e.target.value === '' ? '' : Number(e.target.value))} style={inputStyle} />
+          </div>
+          <div className="field"><label>Fuso orario</label>
+            <select value={timezone} onChange={(e) => setTimezone(e.target.value)} style={inputStyle}>
+              {TIMEZONE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {!TIMEZONE_OPTIONS.some((o) => o.value === timezone) && <option value={timezone}>{timezone}</option>}
+            </select>
+          </div>
+          <div className="field" style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <button className="button secondary" disabled={savingProj} onClick={saveProiezione}>{savingProj ? 'Salvataggio...' : 'Salva'}</button>
           </div>
         </div>
       </div>
@@ -511,6 +522,12 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
                 <div className="field"><label>Game da raggiungere</label><input type="number" min={1} value={struct.targetGames} onChange={(e) => setStruct({ ...struct, targetGames: Number(e.target.value) })} /></div>
               )}
               <div className="field"><label>Qualificati per girone</label><input type="number" min={1} value={struct.qualifiedPerGroup} onChange={(e) => setStruct({ ...struct, qualifiedPerGroup: Number(e.target.value) })} /></div>
+              <div className="field"><label>Calendario gironi</label>
+                <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 14, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={struct.assignGroupTimes} onChange={(e) => setStruct({ ...struct, assignGroupTimes: e.target.checked })} />
+                  Assegna orario alle partite dei gironi
+                </label>
+              </div>
             </div>
           )}
         </div>

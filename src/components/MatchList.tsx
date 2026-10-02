@@ -7,6 +7,7 @@ import { validateMatchResult } from '@/lib/domain/validators';
 import { rulesForPhase } from '@/lib/domain/scoring';
 import { phaseLabel, bracketLabel } from '@/lib/domain/labels';
 import { isByeSide } from '@/lib/domain/calendar';
+import { formatDateTime } from '@/lib/domain/time';
 import { matchPhaseRank, mvpScopeThreshold, type MvpThrough } from '@/lib/domain/mvp';
 
 type MvpInfo = { matchId: string; playerId: string; rating: number; penalty?: number };
@@ -22,11 +23,12 @@ type Props = {
   rules?: TournamentRules;
   mvpVotes?: MvpInfo[];
   showTime?: boolean;
+  timezone?: string;
   mvpEnabled?: boolean;
   mvpThroughPhase?: string;
 };
 
-export function MatchList({ matches, participants, players = [], courtNames = {}, groupNames = {}, editable = false, tournamentId, rules, mvpVotes = [], showTime = true, mvpEnabled = true, mvpThroughPhase = 'FINAL' }: Props) {
+export function MatchList({ matches, participants, players = [], courtNames = {}, groupNames = {}, editable = false, tournamentId, rules, mvpVotes = [], showTime = true, timezone, mvpEnabled = true, mvpThroughPhase = 'FINAL' }: Props) {
   const name = new Map(participants.map((p) => [p.id, p.displayName]));
   const playerNameMap = new Map(players.map((p) => [p.id, p.displayName]));
   return (
@@ -48,6 +50,7 @@ export function MatchList({ matches, participants, players = [], courtNames = {}
             players={players}
             matchMvp={matchMvp.map((v) => ({ ...v, playerName: playerNameMap.get(v.playerId) ?? v.playerId }))}
             showTime={showTime}
+            timezone={timezone}
             mvpEnabled={mvpEnabled}
             mvpThroughPhase={mvpThroughPhase}
           />
@@ -70,11 +73,12 @@ type CardProps = {
   players: { id: string; displayName: string }[];
   matchMvp: { playerId: string; playerName: string; rating: number; penalty?: number }[];
   showTime: boolean;
+  timezone?: string;
   mvpEnabled: boolean;
   mvpThroughPhase: string;
 };
 
-function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, tournamentId, rules, participants, players, matchMvp, showTime, mvpEnabled, mvpThroughPhase }: CardProps) {
+function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, tournamentId, rules, participants, players, matchMvp, showTime, timezone, mvpEnabled, mvpThroughPhase }: CardProps) {
   const router = useRouter();
   const isCompleted = ['COMPLETED', 'WALKOVER', 'RETIRED'].includes(match.status);
   const canEdit = editable || (!!tournamentId && !!rules && isCompleted);
@@ -167,7 +171,7 @@ function MatchCard({ match, nameA, nameB, courtName, groupNames = {}, editable, 
         <span>{match.groupId ? (groupNames[match.groupId] ?? phaseLabel(match.phase)) : phaseLabel(match.phase)}</span>
         <span>Turno {match.roundIndex}</span>
         <span>{courtName ?? 'Campo da assegnare'}</span>
-        {showTime ? <span>{match.scheduledAt ? new Date(match.scheduledAt).toLocaleString('it-IT') : 'Orario da assegnare'}</span> : null}
+        {showTime ? <span>{match.scheduledAt ? formatDateTime(match.scheduledAt, timezone) : 'Orario da assegnare'}</span> : null}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <div>

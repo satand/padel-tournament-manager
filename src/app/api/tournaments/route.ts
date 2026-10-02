@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/server/db';
 import { defaultMVPSettings, defaultTournamentRules } from '@/lib/domain/types';
+import { DEFAULT_TIMEZONE, isValidTimezone } from '@/lib/domain/time';
 
 function pick<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
@@ -69,6 +70,8 @@ export async function POST(request: Request) {
           splitGoldSilver: Boolean(body.splitGoldSilver),
           mvpThroughPhase,
           presentSlideSeconds: body.presentSlideSeconds != null ? Math.min(120, Math.max(2, Math.trunc(num(body.presentSlideSeconds, 6)))) : null,
+          timezone: typeof body.timezone === 'string' && isValidTimezone(body.timezone) ? body.timezone : DEFAULT_TIMEZONE,
+          assignGroupTimes: typeof body.assignGroupTimes === 'boolean' ? body.assignGroupTimes : true,
           allowDraws: Boolean(body.allowDraws ?? defaultTournamentRules.allowDraws),
           tieBreakEnabled: body.tieBreakEnabled ?? true,
           goldenPointEnabled: body.goldenPointEnabled ?? true,

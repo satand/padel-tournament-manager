@@ -33,6 +33,22 @@ describe('scheduler', () => {
     expect(scheduled.every((match) => match.courtId && match.scheduledAt)).toBe(true);
   });
 
+  it('con assignTimes=false assegna solo il campo, nessun orario', () => {
+    const matches = generateRoundRobinMatches(participants);
+    const scheduled = assignSchedule(matches, {
+      ...base,
+      courts,
+      startsAt,
+      warmUpMinutes: 5,
+      matchDurationMinutes: 30,
+      changeoverMinutes: 10,
+      maxMatchesPerPlayerDay: 5,
+      assignTimes: false
+    });
+    expect(scheduled.every((match) => match.courtId != null)).toBe(true);
+    expect(scheduled.every((match) => match.scheduledAt == null)).toBe(true);
+  });
+
   it('distribuisce le partite con passo = riscaldamento + match + cambio', () => {
     const matches = generateRoundRobinMatches(participants);
     const scheduled = assignSchedule(matches, {

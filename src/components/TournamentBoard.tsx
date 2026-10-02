@@ -5,6 +5,7 @@ import { averageMvpRatingByParticipant, MVP_THROUGH_LABEL } from '@/lib/domain/m
 import { bracketPhaseReached, bracketPlacements, generalPhaseReached } from '@/lib/domain/finals';
 import { participantsByGroupOrder } from '@/lib/domain/calendar';
 import { bracketLabel } from '@/lib/domain/labels';
+import { formatDateTime } from '@/lib/domain/time';
 import { RankingTable } from '@/components/RankingTable';
 import { MVPTable } from '@/components/MVPTable';
 import { MatchList } from '@/components/MatchList';
@@ -35,6 +36,7 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
   const completedMatches = groupOnly.filter((m) => DONE.includes(m.status));
   const otherMatches = groupOnly.filter((m) => ['CANCELLED', 'POSTPONED'].includes(m.status));
   const courtNames: Record<string, string> = Object.fromEntries(data.courts.map((c) => [c.id, c.name]));
+  const tz = data.settings?.timezone;
   const groupNames: Record<string, string> = Object.fromEntries(data.groups.map((g) => [g.id, g.name]));
 
   const participantsForAdmin = data.participants.map((p) => ({
@@ -89,7 +91,7 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
             <h1>{data.name}</h1>
             {data.startsAt && (
               <p style={{ color: 'var(--muted)', fontSize: 14, margin: '2px 0 0' }}>
-                Inizio: {new Date(data.startsAt).toLocaleString('it-IT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                Inizio: {formatDateTime(data.startsAt, data.settings?.timezone)}
               </p>
             )}
           </div>
@@ -249,7 +251,7 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
           {isAdmin
             ? <RandomizeGroupResultsEasterEgg tournamentId={data.id} count={groupDisplay.length} remaining={scheduledMatches.length} />
             : <h2>Fase Gironi ({groupDisplay.length})</h2>}
-          <MatchList matches={groupDisplay} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={canEdit} mvpVotes={mvpVotesInfo} tournamentId={canEdit ? data.id : undefined} rules={canEdit ? data.rules : undefined} {...mvpScopeProps} />
+          <MatchList matches={groupDisplay} participants={data.participants} players={playersForMatch} courtNames={courtNames} groupNames={groupNames} editable={canEdit} mvpVotes={mvpVotesInfo} timezone={tz} tournamentId={canEdit ? data.id : undefined} rules={canEdit ? data.rules : undefined} {...mvpScopeProps} />
         </section>
       )}
       {finalMatches.length > 0 && (
@@ -268,7 +270,7 @@ export function TournamentBoard({ data, mode }: { data: TournamentContext; mode:
       {otherMatches.length > 0 && (
         <section className="panel">
           <h2>Rinviate / Cancellate ({otherMatches.length})</h2>
-          <MatchList matches={otherMatches} participants={data.participants} courtNames={courtNames} groupNames={groupNames} />
+          <MatchList matches={otherMatches} participants={data.participants} courtNames={courtNames} groupNames={groupNames} timezone={tz} />
         </section>
       )}
     </main>
