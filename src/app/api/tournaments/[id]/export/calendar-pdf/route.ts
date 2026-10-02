@@ -78,16 +78,22 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   if (model.sections.length === 0) {
     page.drawText('Nessuna partita in calendario.', { x: M, y, size: 11, font, color: MUTED });
   }
-  for (const section of model.sections) {
-    if (y - 44 < M) { page = doc.addPage(PAGE); drawHeader(false); }
-    page.drawText(clip(section.label, usable, bold, 12), { x: M, y, size: 12, font: bold, color: INK });
+  // Se tutte le righe di una sezione condividono un campo, lo mostro in intestazione (utile da appendere al campo).
+  const sectionTitle = (section: (typeof model.sections)[number]) => {
+    const courts = [...new Set(section.rows.map((r) => r.court).filter((c) => c && c !== '-'))];
+    return courts.length === 1 ? `${section.label} - ${courts[0]}` : section.label;
+  };
+  model.sections.forEach((section, si) => {
+    const title = sectionTitle(section);
+    if (si > 0) { page = doc.addPage(PAGE); drawHeader(false); } // ogni sezione inizia su una pagina nuova
+    page.drawText(clip(title, usable, bold, 12), { x: M, y, size: 12, font: bold, color: INK });
     y -= 18;
     drawCols();
     for (const row of section.rows) {
       if (y - 14 < M) {
         page = doc.addPage(PAGE);
         drawHeader(false);
-        page.drawText(clip(section.label, usable, bold, 10), { x: M, y, size: 10, font: bold, color: INK });
+        page.drawText(clip(title, usable, bold, 10), { x: M, y, size: 10, font: bold, color: INK });
         y -= 18;
         drawCols();
       }
@@ -95,7 +101,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       drawRow(values);
     }
     y -= 10;
-  }
+  });
 
   const bytes = await doc.save();
   const base = (tournament.slug ?? tournament.id).replace(/[^a-z0-9\-_]+/gi, '-');

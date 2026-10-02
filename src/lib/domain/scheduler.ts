@@ -102,48 +102,53 @@ export function generateKnockoutBracket(participants: Participant[], includeThir
 }
 
 export function assignSchedule(matches: Match[], input: ScheduleInput): Match[] {
-  // Senza calcolo orario: ruota solo i campi e lascia scheduledAt a null.
+  const sortedCourts = [...input.courts].sort((a, b) => a.order - b.order);
+  if (sortedCourts.length === 0) return matches.map((m) => ({ ...m }));
+
+  // Raggruppa per girone (ordine di prima comparsa); entro il girone vale l'ordine corrente.
+  const groupKeys: string[] = [];
+  const byGroup = new Map<string, Match[]>();
+  for (const m of matches) {
+    const g = m.groupId ?? '—';
+    if (!byGroup.has(g)) { byGroup.set(g, []); groupKeys.push(g); }
+    byGroup.get(g)!.push(m);
+  }
+  // Campo dedicato a ogni girone (distribuzione round-robin sui campi disponibili).
+  const courtOfGroup = new Map<string, string>(groupKeys.map((g, gi) => [g, sortedCourts[gi % sortedCourts.length].id]));
+
+  // Senza calcolo orario: assegna comunque il campo del girone, nessun orario.
   if (input.assignTimes === false) {
-    const courts = [...input.courts].sort((a, b) => a.order - b.order);
-    if (courts.length === 0) return matches.map((m) => ({ ...m }));
-    return matches.map((m, i) => ({ ...m, courtId: courts[i % courts.length].id, scheduledAt: undefined }));
+    return matches.map((m) => ({ ...m, courtId: courtOfGroup.get(m.groupId ?? '—')!, scheduledAt: undefined }));
   }
 
-  const scheduled: Match[] = [];
-  const playerLastTime = new Map<string, Date>();
-  const playerMatchCount = new Map<string, number>();
-  const sortedCourts = [...input.courts].sort((a, b) => a.order - b.order);
   const slot = input.warmUpMinutes + input.matchDurationMinutes + input.changeoverMinutes;
-  let cursor = new Date(input.startsAt);
-  let courtIndex = 0;
+  const cap = input.maxMatchesPerPlayerDay;
+  const DAY = 86400000;
+  const base = new Date(input.startsAt).getTime();
+  const dayIndexOf = (t: number) => Math.floor((t - base) / DAY);
+  const dayStart = (i: number) => base + i * DAY;
+  const courtTime = new Map(sortedCourts.map((c) => [c.id, base])); // ogni campo parte a startsAt (in parallelo)
+  const perPlayerDay = new Map<string, number>();
+  const count = (id: string, d: number) => perPlayerDay.get(`${id}#${d}`) ?? 0;
 
-  for (const match of matches) {
-    let attempts = 0;
-    while (attempts < 10000) {
-      const court = sortedCourts[courtIndex % sortedCourts.length];
-      const participants = [match.participantAId, match.participantBId].filter((id): id is string => id != null);
-      const hasRest = participants.every((id) => {
-        const last = playerLastTime.get(id);
-        if (!last) return true;
-        return minutesBetween(last, cursor) >= slot;
-      });
-      const underDailyLimit = input.maxMatchesPerPlayerDay == null
-        ? true
-        : participants.every((id) => (playerMatchCount.get(id) ?? 0) < input.maxMatchesPerPlayerDay!);
-      if (hasRest && underDailyLimit) {
-        const assigned = { ...match, courtId: court.id, scheduledAt: cursor.toISOString() };
-        scheduled.push(assigned);
-        for (const id of participants) {
-          playerLastTime.set(id, cursor);
-          playerMatchCount.set(id, (playerMatchCount.get(id) ?? 0) + 1);
+  const scheduled: Match[] = [];
+  for (const g of groupKeys) {
+    const courtId = courtOfGroup.get(g)!;
+    for (const m of byGroup.get(g)!) {
+      const players = [m.participantAId, m.participantBId].filter((id): id is string => id != null);
+      let t = courtTime.get(courtId)!;
+      // Cap partite/giorno: se la prossima eccederebbe il limite, slitta all'inizio del giorno successivo sullo stesso campo.
+      if (cap != null && cap > 0) {
+        let guard = 0;
+        while (players.some((id) => count(id, dayIndexOf(t)) >= cap) && guard < 1000) {
+          t = dayStart(dayIndexOf(t) + 1);
+          guard += 1;
         }
-        courtIndex += 1;
-        if (courtIndex % sortedCourts.length === 0) cursor = addMinutes(cursor, slot);
-        break;
       }
-      courtIndex += 1;
-      if (courtIndex % sortedCourts.length === 0) cursor = addMinutes(cursor, slot);
-      attempts += 1;
+      const d = dayIndexOf(t);
+      scheduled.push({ ...m, courtId, scheduledAt: new Date(t).toISOString() });
+      for (const id of players) perPlayerDay.set(`${id}#${d}`, count(id, d) + 1);
+      courtTime.set(courtId, t + slot * 60000);
     }
   }
   return scheduled;
@@ -174,14 +179,6 @@ function phaseWeight(phase: string): number {
   if (phase === 'semifinal') return 1.3;
   if (phase === 'quarterfinal') return 1.15;
   return 1;
-}
-
-function minutesBetween(a: Date, b: Date): number {
-  return (b.getTime() - a.getTime()) / 60000;
-}
-
-function addMinutes(date: Date, minutes: number): Date {
-  return new Date(date.getTime() + minutes * 60000);
 }
 
 export type FinalSlot =
