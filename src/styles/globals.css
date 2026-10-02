@@ -61,7 +61,8 @@ tr:last-child td { border-bottom: 0; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .field { display: grid; gap: 7px; }
 .field label { font-size: 13px; color: var(--muted); font-weight: 700; }
-.field input, .field select, .field textarea { width: 100%; border: 1px solid var(--border); border-radius: 12px; background: white; padding: 12px; color: var(--text); }
+.field input:not([type="checkbox"]):not([type="radio"]), .field select, .field textarea { width: 100%; border: 1px solid var(--border); border-radius: 12px; background: white; padding: 12px; color: var(--text); }
+.field input[type="checkbox"], .field input[type="radio"] { width: auto; height: auto; padding: 0; margin: 0; border: 0; background: transparent; accent-color: var(--accent); }
 .steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
 .step { padding: 10px; border-radius: 14px; background: #f8fafc; border: 1px solid var(--border); font-size: 12px; color: var(--muted); }
 .step strong { display: block; color: var(--text); }

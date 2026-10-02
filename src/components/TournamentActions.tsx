@@ -523,7 +523,7 @@ export function TournamentActions({ tournamentId, status, startsAt, participants
               )}
               <div className="field"><label>Qualificati per girone</label><input type="number" min={1} value={struct.qualifiedPerGroup} onChange={(e) => setStruct({ ...struct, qualifiedPerGroup: Number(e.target.value) })} /></div>
               <div className="field"><label>Calendario gironi</label>
-                <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontSize: 14, cursor: 'pointer' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, width: 'fit-content', justifyContent: 'flex-start', fontSize: 14, cursor: 'pointer' }}>
                   <input type="checkbox" checked={struct.assignGroupTimes} onChange={(e) => setStruct({ ...struct, assignGroupTimes: e.target.checked })} />
                   Assegna orario alle partite dei gironi
                 </label>
