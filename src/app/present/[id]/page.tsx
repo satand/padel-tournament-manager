@@ -85,9 +85,10 @@ export default async function PresentTournamentPage({ params }: { params: Promis
   if (singleWinner) winners.push({ rank: 1, label: 'Campione', team: singleWinner, tone: 'gold' });
   if (goldWinner) winners.push({ rank: 1, label: 'Gold', team: goldWinner, tone: 'gold' });
   if (silverWinner) winners.push({ rank: 1, label: 'Silver', team: silverWinner, tone: 'silver' });
+  const mvpWinnerName = mvp.rows.find((row) => row.position === 1)?.displayName ?? mvp.rows[0]?.displayName;
   if (winners.length > 0) {
     const title = winners.length > 1 ? 'Campioni' : 'Campione';
-    screens.push({ id: 'champion', label: `🏆 ${title}`, slides: [{ kind: 'champion', id: 'champion', title, winners }] });
+    screens.push({ id: 'champion', label: `🏆 ${title}`, slides: [{ kind: 'champion', id: 'champion', title, winners, ...(mvpWinnerName ? { mvpName: mvpWinnerName } : {}) }] });
   }
 
   const defaultScreenId = champion ? 'champion' : bracketSlides.length > 0 ? 'finals' : data.groups.length > 0 ? 'groups' : screens[0]?.id;

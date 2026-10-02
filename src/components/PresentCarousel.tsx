@@ -25,7 +25,7 @@ export type PresentSlide =
   | { kind: 'standings'; id: string; title: string; rows: RankingRow[]; phaseReached?: Map<string, string> }
   | { kind: 'groups'; id: string; title: string; groups: { name: string; rows: RankingRow[] }[] }
   | { kind: 'mvp'; id: string; title: string; subtitle?: string; rows: MVPStandingRow[] }
-  | { kind: 'champion'; id: string; title: string; winners: ChampionWinner[] }
+  | { kind: 'champion'; id: string; title: string; winners: ChampionWinner[]; mvpName?: string }
   | { kind: 'bracket'; id: string; title: string; columns: BracketColumn[] };
 
 export type PresentScreen = { id: string; label: string; slides: PresentSlide[] };
@@ -240,6 +240,16 @@ function ChampionSlide({ slide }: { slide: PresentSlide & { kind: 'champion' } }
         <div style={{ display: 'flex', gap: 'clamp(16px, 4vw, 56px)', flexWrap: 'wrap', justifyContent: 'center', marginTop: 'clamp(16px, 3vh, 34px)' }}>
           {slide.winners.map((w) => <MedalBox key={w.label} winner={w} />)}
         </div>
+        {slide.mvpName && (
+          <div style={{ marginTop: 'clamp(22px, 4vh, 44px)', textAlign: 'center' }}>
+            <div style={{ fontSize: 'clamp(12px, 1.6vw, 18px)', color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '.12em' }}>
+              MVP
+            </div>
+            <div style={{ fontSize: 'clamp(20px, 3vw, 38px)', fontWeight: 800, marginTop: 4, color: '#f8fafc', wordBreak: 'break-word' }}>
+              {slide.mvpName}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
