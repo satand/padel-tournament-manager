@@ -4,7 +4,7 @@ import { tournamentInclude, toDomainContext } from '@/lib/server/serialize';
 import { closedResponse } from '@/lib/server/guards';
 import { resolveBracket } from '@/lib/server/bracket';
 import { buildFinalBracket, type FinalSlot } from '@/lib/domain/scheduler';
-import { bracketSizeFor, orderQualifiers, splitGoldSilver, type ComparableQualified, type FinalRound } from '@/lib/domain/finals';
+import { bracketSizeFor, orderQualifiers, splitGoldSilverByPlacement, type ComparableQualified, type FinalRound } from '@/lib/domain/finals';
 import { sumMvpRatingByParticipant } from '@/lib/domain/mvp';
 import { calculateRanking } from '@/lib/domain/ranking';
 
@@ -75,7 +75,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         displayName: row.displayName,
         points: row.points,
         gameDiff: row.gameDiff,
-        mvpSum: mvpSum[row.participantId] ?? 0
+        mvpSum: mvpSum[row.participantId] ?? 0,
+        groupPlacement: row.position
       });
     }
   }
@@ -88,7 +89,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   let silver: ComparableQualified[] = [];
   let single: ComparableQualified[] = [];
   if (split && ordered.length >= 4) {
-    ({ gold, silver } = splitGoldSilver(ordered, settings?.qualifiedForGold));
+    ({ gold, silver } = splitGoldSilverByPlacement(pool, settings?.qualifiedForGold));
   } else {
     single = ordered;
   }

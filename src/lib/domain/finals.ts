@@ -45,6 +45,7 @@ export type ComparableQualified = {
   points: number;
   gameDiff: number;
   mvpSum: number;
+  groupPlacement?: number; // piazzamento nel proprio girone (1 = primo classificato)
 };
 
 // Ordinamento globale cross-girone: punti, poi differenza game, poi somma MVP, poi nome.
@@ -77,6 +78,19 @@ export function splitGoldSilver<T extends ComparableQualified>(ordered: T[], gol
   if (ordered.length < 4) return { gold: ordered, silver: [] };
   const g = clampGoldCount(ordered.length, goldCount);
   return { gold: ordered.slice(0, g), silver: ordered.slice(g) };
+}
+
+// Seleziona Gold/Silver per PIAZZAMENTO nel girone: prima i primi di ogni girone, poi i secondi, ecc.
+// A pari piazzamento decide la classifica generale cross-girone (orderQualifiers: punti → diff game → MVP → nome).
+export function splitGoldSilverByPlacement<T extends ComparableQualified>(pool: T[], goldCount: number | null | undefined): GoldSilverSplit<T> {
+  if (pool.length < 4) return { gold: orderQualifiers(pool), silver: [] };
+  const general = orderQualifiers(pool);
+  const generalRank = new Map(general.map((q, i) => [q.id, i + 1] as const));
+  const sel = [...pool].sort(
+    (a, b) => (a.groupPlacement ?? 0) - (b.groupPlacement ?? 0) || (generalRank.get(a.id) ?? 0) - (generalRank.get(b.id) ?? 0)
+  );
+  const g = clampGoldCount(pool.length, goldCount);
+  return { gold: sel.slice(0, g), silver: sel.slice(g) };
 }
 
 // ---- Classifica a piazzamento (fase raggiunta) per tabellone ----

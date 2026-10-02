@@ -9,6 +9,7 @@ import {
   eligibleRounds,
   orderQualifiers,
   splitGoldSilver,
+  splitGoldSilverByPlacement,
   type ComparableQualified
 } from '@/lib/domain/finals';
 import { buildFinalBracket } from '@/lib/domain/scheduler';
@@ -74,6 +75,34 @@ describe('finals — split Gold/Silver', () => {
 
   it('con meno di 4 qualificate non divide (tutto in Gold)', () => {
     const { gold, silver } = splitGoldSilver([q('A', 9, 0), q('B', 8, 0), q('C', 7, 0)], 1);
+    expect(gold.length).toBe(3);
+    expect(silver.length).toBe(0);
+  });
+});
+
+describe('finals — split Gold/Silver per piazzamento nel girone', () => {
+  const qp = (id: string, points: number, gameDiff: number, groupPlacement: number, mvpSum = 0): ComparableQualified =>
+    ({ id, displayName: id, points, gameDiff, mvpSum, groupPlacement });
+
+  it('prima i primi di ogni girone, poi i secondi (a prescindere dai punti assoluti)', () => {
+    // girone1: A(1°) B(2°); girone2: C(1°) D(2°). B ha piu' punti/secchi di C, ma C e' primo del suo girone.
+    const pool = [qp('A', 6, 2, 1), qp('B', 6, 5, 2), qp('C', 3, 1, 1), qp('D', 0, -3, 2)];
+    const { gold, silver } = splitGoldSilverByPlacement(pool, 2);
+    expect(gold.map((r) => r.id)).toEqual(['A', 'C']); // un primo per girone, ordinati per classifica generale
+    expect(silver.map((r) => r.id)).toEqual(['B', 'D']); // i secondi
+    // il vecchio "best overall" avrebbe messo [B, A] (entrambi del girone 1) nel Gold
+    expect(splitGoldSilver(orderQualifiers(pool), 2).gold.map((r) => r.id)).toEqual(['B', 'A']);
+  });
+
+  it('a pari piazzamento decide la classifica generale cross-girone', () => {
+    // due primi di girone con gli stessi punti: C (miglior diff game) precede A
+    const pool = [qp('A', 6, 1, 1), qp('B', 0, -1, 2), qp('C', 6, 5, 1), qp('D', 0, -1, 2)];
+    const { gold } = splitGoldSilverByPlacement(pool, 2);
+    expect(gold.map((r) => r.id)).toEqual(['C', 'A']); // tra i due 1°, prima C (diff game maggiore)
+  });
+
+  it('con meno di 4 qualificate non divide', () => {
+    const { gold, silver } = splitGoldSilverByPlacement([qp('A', 9, 0, 1), qp('B', 8, 0, 1), qp('C', 7, 0, 2)], 1);
     expect(gold.length).toBe(3);
     expect(silver.length).toBe(0);
   });
